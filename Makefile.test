@@ -1,0 +1,15 @@
+all: main.cpp bib.o bib2.o
+	g++ main.cpp -o exec
+
+bib.o: bib.cpp bib.h
+	g++ -c bib.cpp -o bib.o
+	g+++ another command
+
+bib2.o: bib2.cpp bib2.h bib3.o
+	g++ bib2
+
+bib3.o: bib3.cpp bib3.h
+	g++ bib3
+
+clean:
+	rm exec
