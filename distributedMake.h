@@ -7,11 +7,12 @@
 #include <map>
 #include <vector>
 #include <string>
+#include <algorithm>
 
 class DistributedMake : public Make {
 	protected:
 		std::map<std::string, Rule*> rules;
-		std::map<std::string, bool> visitedRules;
+		std::map<std::string, bool> ruleIsFinished;
 		std::set<Rule*> initialSet;
 	private:
 		void createInitialSet(std::string startRule);

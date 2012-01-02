@@ -13,7 +13,6 @@ void DistributedMake::createInitialSet(string startRule) {
 	}
 
 	if((numDependencies == 0) && !rule->isFile()) {
-		cout << "Inserting in the set... " << rule->getName() << endl;
 		initialSet.insert(rule);
 	}
 	else {
@@ -26,17 +25,27 @@ void DistributedMake::createInitialSet(string startRule) {
 vector<Rule*> DistributedMake::topologicalSort() {
 	vector<Rule*> orderedList;
 
+	map< Rule*, vector<Rule*> > dependencies;
+	for(map<string, Rule*>::iterator i = rules.begin(); i != rules.end(); i++) {
+		dependencies[i->second] = i->second->getRuleDependencies();
+	}
+
 	while(!initialSet.empty()) {
 		Rule* r = *(initialSet.begin());
 		initialSet.erase(initialSet.begin());
 
 		orderedList.push_back(r);
 
-		vector<Rule*> deps = r->getDependencies();
-		for(unsigned int i=0; i<deps.size(); i++) {
-			deps[i]->removeRuleUsing(r);
-			if(deps[i]->getRulesUsing().size() == 0)
-				initialSet.insert(deps[i]);
+		//cout << "Checking " << r->getName() << endl;
+		vector<Rule*> usedBy = r->getRulesUsing();
+		for(unsigned int i=0; i<usedBy.size(); i++) {
+			//cout << "   > " << usedBy[i]->getName() << endl;
+			
+			vector<Rule*>::iterator it = find(dependencies[usedBy[i]].begin(), dependencies[usedBy[i]].end(), r);
+			dependencies[usedBy[i]].erase(it);
+
+			if(dependencies[usedBy[i]].size() == 0)
+				initialSet.insert(usedBy[i]);
 		}
 	}
 
