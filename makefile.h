@@ -12,6 +12,7 @@
 #include <sys/stat.h>	
 #include <unistd.h>
 #include <ctime>
+#include <streambuf>
 
 class Rule {
 	protected:
