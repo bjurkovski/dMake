@@ -12,6 +12,7 @@ void DistributedMake::createInitialSet(string startRule) {
 		if(!deps[i]->isFile()) numDependencies++;
 	}
 
+	//cout << startRule << " has " << numDependencies << " dependencies... isFile = " << rule->isFile() << endl;
 	if((numDependencies == 0) && !rule->isFile()) {
 		initialSet.insert(rule);
 	}
@@ -30,6 +31,7 @@ vector<Rule*> DistributedMake::topologicalSort() {
 		dependencies[i->second] = i->second->getRuleDependencies();
 	}
 
+	//cout << "InitialSet size: " << initialSet.size() << endl;
 	while(!initialSet.empty()) {
 		Rule* r = *(initialSet.begin());
 		initialSet.erase(initialSet.begin());
@@ -56,7 +58,7 @@ void DistributedMake::run(Makefile makefile) {
 }
 
 void DistributedMake::run(Makefile makefile, string startRule) {
-	//cout << makefile.toString();
+	cout << makefile.toString();
 	rules = makefile.getRules();
 	if(rules.find(startRule) == rules.end()) {
 		cout << "dmake: *** No rule to make target '" << startRule << "'.  Stop." << endl;

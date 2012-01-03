@@ -20,7 +20,7 @@ class Rule {
 		std::vector<std::string> commands;
 		std::vector<Rule*> usedBy;
 		bool isAFile;
-		struct tm* timeModified;
+		struct tm timeModified;
 	private:
 
 	public:

@@ -9,10 +9,10 @@ Rule::Rule(string name) {
 	FILE* file = fopen(name.c_str(), "r");
 	if(file != NULL) {
 		fclose(file);
-		isAFile = true;
 		struct stat attrib;
 		stat(name.c_str(), &attrib);
-		timeModified = gmtime(&(attrib.st_mtime));
+		timeModified = *gmtime(&(attrib.st_mtime));
+		isAFile = true;
 	}
 	else {
 		isAFile = false;
@@ -24,6 +24,12 @@ void Rule::addCommand(string command) {
 }
 
 void Rule::addDependency(Rule* dependency) {
+	if(dependency->isFile() && isFile() && (mktime(&(dependency->timeModified)) > mktime(&timeModified))) {
+		isAFile = false;
+	}
+	else if(!dependency->isFile())
+		isAFile = false;
+
 	dependencies.push_back(dependency);
 	dependency->addRuleUsing(this);
 }
@@ -173,13 +179,17 @@ void Makefile::read(const string filename) {
 				else { // It's a rule definition
 					char *name, *dependencies, *dep;
 					name = strtok(line, ":");
-					map<string, Rule*>::iterator it = rules.find(name);
 
+					string ruleName;
+					if(isVariable(name)) ruleName = getVariableValue(name);
+					else ruleName = name;
+
+					map<string, Rule*>::iterator it = rules.find(ruleName);
 					if(it == rules.end()) {
-						rule = new Rule(name);
+						rule = new Rule(ruleName);
 						if(rules.size() == 0)
 							firstRule = rule;
-						rules[name] = rule;
+						rules[ruleName] = rule;
 					}
 					else {
 						rule = it->second;

@@ -7,9 +7,13 @@
 
 using namespace std;
 
-int main() {
+int main(int argc, char* argv[]) {
 	Makefile mkfile;
-	mkfile.read("Makefile.test");
+
+	if(argc > 1)
+		mkfile.read(argv[1]);
+	else
+		mkfile.read();
 
 	Make* make = new DistributedMake();
 	make->run(mkfile);
