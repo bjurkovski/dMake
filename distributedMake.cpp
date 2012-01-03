@@ -40,7 +40,6 @@ vector<Rule*> DistributedMake::topologicalSort() {
 		vector<Rule*> usedBy = r->getRulesUsing();
 		for(unsigned int i=0; i<usedBy.size(); i++) {
 			//cout << "   > " << usedBy[i]->getName() << endl;
-			
 			vector<Rule*>::iterator it = find(dependencies[usedBy[i]].begin(), dependencies[usedBy[i]].end(), r);
 			dependencies[usedBy[i]].erase(it);
 

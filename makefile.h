@@ -9,6 +9,9 @@
 #include <map>
 #include <iostream>
 #include <sstream>
+#include <sys/stat.h>	
+#include <unistd.h>
+#include <ctime>
 
 class Rule {
 	protected:
@@ -16,6 +19,8 @@ class Rule {
 		std::vector<Rule*> dependencies;
 		std::vector<std::string> commands;
 		std::vector<Rule*> usedBy;
+		bool isAFile;
+		struct tm* timeModified;
 	private:
 
 	public:
@@ -41,11 +46,13 @@ class Rule {
 class Makefile {
 	protected:
 		Rule* firstRule;
-		//std::vector<Rule*> rules;
 		std::map<std::string, Rule*> rules;
 		std::map<std::string, std::string> variables;
 	private:
 		void addVariable(std::string varName, std::string varValue);
+		bool isVariable(std::string depName);
+		std::string getVariableValue(std::string variable);
+		void addDependency(Rule* rule, std::string dependencyName);
 	public:
 		void read();
 		void read(const std::string filename);
