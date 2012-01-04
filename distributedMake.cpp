@@ -67,8 +67,17 @@ void DistributedMake::run(Makefile makefile, string startRule) {
 
 	createInitialSet(startRule);
 	vector<Rule*> orderedList = topologicalSort();
+	vector<string> commands;
 
 	for(unsigned int i=0; i<orderedList.size(); i++) {
 		cout << i << ": " << orderedList[i]->getName() << endl;
+		 commands = orderedList[i]->getCommands();
+		 for(unsigned int j=0; j<commands.size(); j++){
+		   cout << "\t" << j << " : " << commands[j] <<endl;
+
+		   // Execution
+		   // TODO : redirect the output flow in the shell where dmake is executed
+		   system(commands[j].c_str());
+		 }
 	}
 }
