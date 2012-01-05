@@ -105,6 +105,64 @@ string Rule::serialize() {
 }
 
 void Rule::deserialize(std::string serializedRule) {
+  stringbuf isString(serializedRule);
+  istream is(&isString);
+  string line;
+  unsigned int counter;
+
+  // Read name
+  getline(is, line);
+  name = line;
+
+  // Read dependencies
+  getline(is, line);
+  counter = atoi(line.c_str());
+  for(unsigned int i=0; i<counter; i++){
+    getline(is, line);
+    Rule* rule = new Rule(line);
+    addDependency(rule);
+  }
+
+  // Read commands
+  getline(is, line);
+  counter = atoi(line.c_str());
+  for(unsigned int i=0; i<counter; i++){
+    getline(is, line);
+    addCommand(line);
+  }
+
+  // Read used_by
+  getline(is, line);
+  counter = atoi(line.c_str());
+  for(unsigned int i=0; i<counter; i++){
+    getline(is, line);
+    Rule* rule = new Rule(line);
+    addRuleUsing(rule);
+  }
+
+  // Read isAFile
+  getline(is, line);
+  isAFile = atoi(line.c_str());
+
+  // Read timeModified
+  getline(is, line);
+  timeModified.tm_sec  = atoi(line.c_str());
+  getline(is, line);
+  timeModified.tm_min  = atoi(line.c_str());
+  getline(is, line);
+  timeModified.tm_hour  = atoi(line.c_str());
+  getline(is, line);
+  timeModified.tm_mday  = atoi(line.c_str());
+  getline(is, line);
+  timeModified.tm_mon  = atoi(line.c_str());
+  getline(is, line);
+  timeModified.tm_year  = atoi(line.c_str());
+  getline(is, line);
+  timeModified.tm_wday  = atoi(line.c_str());
+  getline(is, line);
+  timeModified.tm_yday  = atoi(line.c_str());
+  getline(is, line);
+  timeModified.tm_isdst  = atoi(line.c_str());
 }
 
 bool Rule::isFile() {
