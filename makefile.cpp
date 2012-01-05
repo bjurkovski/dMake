@@ -75,7 +75,30 @@ vector<Rule*> Rule::getRulesUsing() {
 }
 
 string Rule::serialize() {
-	return "";
+	string ret;
+	ret += name + "\n";
+	ret += dependencies.size() + "\n";
+	for(unsigned int i=0; i<dependencies.size(); i++)
+		ret += dependencies[i]->getName() + "\n";
+	ret += commands.size() + "\n";
+	for(unsigned int i=0; i<commands.size(); i++)
+		ret += commands[i] + "\n";
+	ret += usedBy.size() + "\n";
+	for(unsigned int i=0; i<usedBy.size(); i++)
+		ret += usedBy[i]->getName() + "\n";
+	ret += isAFile + "\n";
+/*
+timeModified.tm_sec;
+timeModified.tm_min;
+timeModified.tm_hour;
+timeModified.tm_mday;
+timeModified.tm_mon;
+timeModified.tm_year;
+timeModified.tm_wday;
+timeModified.tm_yday;
+timeModified.tm_isdst;
+*/
+	return ret;
 }
 
 void Rule::deserialize(std::string serializedRule) {

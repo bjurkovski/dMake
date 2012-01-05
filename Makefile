@@ -1,7 +1,7 @@
 CC = g++
 CFLAGS = -Wall
 LFLAGS =
-OBJS = makefileParser.o makefile.o distributedMake.o
+OBJS = makefile.o distributedMake.o
 OUTPUT = dmake
 
 $(OUTPUT): main.cpp $(OBJS)
