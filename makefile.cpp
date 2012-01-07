@@ -189,17 +189,43 @@ void Makefile::addVariable(string varName, string varValue) {
 	variables[keyValue[0]] = keyValue[1];
 }
 
-bool Makefile::isVariable(string depName) {
+bool Makefile::isVariable(string depName, Rule* rule) {
 	if(depName.size() >= 4) {
 		if(depName[0]=='$' && depName[1]=='(' 
 			&& depName[depName.size()-1]==')') {
 			return true;
 		}
+	} else if((depName.size() == 2) && (depName[0] == '$') && rule != NULL) {
+		switch(depName[1]) {
+			case '@':
+			case '^':
+			case '<':
+				return true;
+		}
 	}
+
 	return false;
 }
 
-string Makefile::getVariableValue(string variable) {
+string Makefile::getVariableValue(string variable, Rule* rule) {
+	string ret = "";
+	vector<Rule*> dependencies;
+	if((variable.size() == 2) && (variable[0] == '$') && rule != NULL) {
+		switch(variable[1]) {
+			case '@':
+				return rule->getName();
+			case '^':
+				dependencies = rule->getDependencies();
+				for(unsigned int i=0; i<dependencies.size(); i++)
+					ret += dependencies[i]->getName() + " ";
+				return ret;
+			case '<':
+				dependencies = rule->getDependencies();
+				if(dependencies.size() > 0) return dependencies[0]->getName();
+				else return "";
+		}
+	}
+
 	return variables[variable.substr(2, variable.size()-3)];
 }
 
@@ -235,7 +261,6 @@ void Makefile::read(const string filename) {
 
 	istringstream iss(buffer);
 	char line[MAX_LINE_SIZE];
-	//vector<Rule*> rules;
 	Rule* rule = NULL;
 	while(iss.getline(line, MAX_LINE_SIZE-1)) {
 		if(strlen(line) > 1) {
@@ -246,7 +271,17 @@ void Makefile::read(const string filename) {
 					exit(1);
 				}
 
-				rule->addCommand(&line[1]);
+				char* word;
+				string command;
+				word = strtok(line, " \t");
+				while(word != NULL) {
+					if(isVariable(word, rule)) command += getVariableValue(word, rule);
+					else command += word;
+					command += " ";
+					word = strtok(NULL, " \t");
+				}
+
+				rule->addCommand(command);
 			}
 			else {
 				// Test the type of line
@@ -265,7 +300,7 @@ void Makefile::read(const string filename) {
 					name = strtok(line, ":");
 
 					string ruleName;
-					if(isVariable(name)) ruleName = getVariableValue(name);
+					if(isVariable(name, rule)) ruleName = getVariableValue(name, rule);
 					else ruleName = name;
 
 					map<string, Rule*>::iterator it = rules.find(ruleName);
@@ -282,8 +317,8 @@ void Makefile::read(const string filename) {
 					dependencies = strtok(NULL, ":");
 					dep = strtok(dependencies, " ");
 					while(dep != NULL) {
-						if(isVariable(dep)) {
-							string varValue = getVariableValue(dep);
+						if(isVariable(dep, rule)) {
+							string varValue = getVariableValue(dep, rule);
 							istringstream varValueStream(varValue);
 							string varPart;
 							while(varValueStream >> varPart) {

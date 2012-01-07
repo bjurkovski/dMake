@@ -51,8 +51,8 @@ class Makefile {
 		std::map<std::string, std::string> variables;
 	private:
 		void addVariable(std::string varName, std::string varValue);
-		bool isVariable(std::string depName);
-		std::string getVariableValue(std::string variable);
+		bool isVariable(std::string depName, Rule* rule);
+		std::string getVariableValue(std::string variable, Rule* rule);
 		void addDependency(Rule* rule, std::string dependencyName);
 	public:
 		void read();
