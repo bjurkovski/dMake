@@ -68,6 +68,10 @@ void DistributedMake::run(Makefile makefile, string startRule) {
 	createInitialSet(startRule);
 	vector<Rule*> orderedList = topologicalSort();
 	vector<string> commands;
+	string lsCommand = "ls -l | sed 's/  */ /g' |cut -d ' ' -f 6-8 > tempFile";
+	string rmCommand = "rm -f tempFile*";
+	string tempFile1; 
+	string tempFile2;
 
 	for(unsigned int i=0; i<orderedList.size(); i++) {
 		cout << i << ": " << orderedList[i]->getName() << endl;
@@ -77,7 +81,39 @@ void DistributedMake::run(Makefile makefile, string startRule) {
 
 		   // Execution
 		   // TODO : redirect the output flow in the shell where dmake is executed
+		   system((lsCommand+"1").c_str());
 		   system(commands[j].c_str());
+		   system((lsCommand+"2").c_str());
+
+		   ifstream tempFile1Stream("tempFile1", ios::in); 
+		   ifstream tempFile2Stream("tempFile2", ios::in); 
+		   string newFiles = ""; // Files produced by the execution of the command
+		   if (tempFile1Stream && tempFile2Stream){
+		     // first line is empty
+		     getline(tempFile1Stream, tempFile1);
+		     getline(tempFile2Stream, tempFile2);
+		     getline(tempFile1Stream, tempFile1);
+		     getline(tempFile2Stream, tempFile2);
+		     bool goOn = true;		    
+		     while(goOn){
+		       if (tempFile1 == tempFile2){ // file not modified
+			 goOn = getline(tempFile1Stream, tempFile1) 
+			   && getline(tempFile2Stream, tempFile2);
+		       }
+		       else if (tempFile1.substr(17, tempFile1.size() - 17) 
+				== tempFile2.substr(17, tempFile2.size() - 17)){ // file modified
+			 newFiles += (tempFile1.substr(17, tempFile1.size() - 17) + "\n");
+			 goOn = getline(tempFile1Stream, tempFile1) 
+			   && getline(tempFile2Stream, tempFile2);
+			 }
+		       else { // new file
+			 newFiles += tempFile2.substr(17, tempFile2.size() - 17);
+			 newFiles += "\n";
+			 goOn = getline(tempFile2Stream, tempFile2);
+		       }
+		     }
+		     cout << "File produced : " << newFiles << endl;
+		   }
 		 }
 	}
 }
