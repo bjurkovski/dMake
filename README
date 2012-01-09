@@ -1,0 +1,9 @@
+* Prerequisites
+sudo apt-get install openmpi-dev
+sudo apt-get install openmpi-bin
+
+* Compiling
+make
+
+* Running (X is the number of processes)
+mpirun -np X dmake

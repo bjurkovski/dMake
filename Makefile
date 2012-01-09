@@ -1,14 +1,15 @@
 CC = g++
+MPICC = mpicxx
 CFLAGS = -Wall
 LFLAGS =
 OBJS = makefile.o distributedMake.o
 OUTPUT = dmake
 
 $(OUTPUT): main.cpp $(OBJS)
-	$(CC) $^ -o $@ $(CFLAGS) $(LFLAGS)
+	$(MPICC) $^ -o $@ $(CFLAGS) $(LFLAGS)
 
 %.o: %.cpp %.h
-	$(CC) -c $< -o $@ $(CFLAGS)
+	$(MPICC) -c $< -o $@ $(CFLAGS)
 
 clean:
 	rm $(OUTPUT)
