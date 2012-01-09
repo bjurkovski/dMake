@@ -53,6 +53,50 @@ vector<Rule*> DistributedMake::topologicalSort() {
 	return orderedList;
 }
 
+bool DistributedMake::canSendTask(Rule* rule) {
+	return true;
+}
+
+bool DistributedMake::sendTask(Rule* rule) {
+	for(int i=0; i<numCores; i++) {
+		int currentCore = (lastUsedCore + i + 1) % numCores;
+		if(currentCore == coreId) continue;
+		if(coresAvailable[currentCore]) {
+			cout << "Dispatching rule '" << rule->getName() << "' to core " << currentCore << endl;
+			MPI_Send((void*) rule->getName().c_str(), rule->getName().size(), MPI_CHAR, currentCore, TASK_MESSAGE, MPI_COMM_WORLD);
+			MPI_Irecv(&resultCodes[currentCore], 1, MPI_INT, currentCore, RESPONSE_MESSAGE, MPI_COMM_WORLD, &mpiRequests[currentCore]);
+			coresAvailable[currentCore] = false;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void DistributedMake::receiveResponse() {
+	for(int i=0; i<numCores; i++) {
+		if(coresAvailable[i]) continue;
+
+		int completed = 0;
+		MPI_Test(&mpiRequests[i], &completed, MPI_STATUS_IGNORE);
+		if(completed) {
+			coresAvailable[i] = true;
+			cout << "Master received return code " << resultCodes[i] << " from core " << i << endl;
+		}
+	}
+}
+
+void DistributedMake::receiveTask() {
+	const int maxTaskNameSize = 256;
+	int sizeReceived;
+	char buf[maxTaskNameSize];
+	MPI_Status status;
+	MPI_Recv(buf, maxTaskNameSize, MPI_CHAR, 0, TASK_MESSAGE, MPI_COMM_WORLD, &status);
+	MPI_Get_count(&status, MPI_CHAR, &sizeReceived);
+	buf[sizeReceived] = '\0';
+	cout << "Core " << coreId << " received task '" << buf << "'" << endl;
+}
+
 vector<string> DistributedMake::executeCommands(vector<string> commands) {
 	const string tempFile = ".tempFile";
 	string lsCommand = "ls -l | sed 's/  */ /g' |cut -d ' ' -f 6-8 > " + tempFile;
@@ -102,9 +146,21 @@ vector<string> DistributedMake::executeCommands(vector<string> commands) {
 	return newFiles;
 }
 
-DistributedMake::DistributedMake(int numCores, int coreId) {
+void DistributedMake::sendResponse() {
+	int resultCode = 1;
+	MPI_Send(&resultCode, 1, MPI_INT, 0, RESPONSE_MESSAGE, MPI_COMM_WORLD);
+	cout << "Core " << coreId << " is sending result back to master!" << endl;
+}
+
+DistributedMake::DistributedMake(int numCores, int coreId) : coresAvailable(numCores, true), resultCodes(numCores, 0) {
 	this->numCores = numCores;
 	this->coreId = coreId;
+	this->lastUsedCore = 0;
+
+	MPI_Request r;
+	for(int i=0; i<numCores; i++) {
+		mpiRequests.push_back(r);
+	}
 }
 
 void DistributedMake::run(Makefile makefile) {
@@ -119,12 +175,26 @@ void DistributedMake::run(Makefile makefile, string startRule) {
 		exit(1);
 	}
 
+	unsigned int currentRule = 0;
 	createInitialSet(startRule);
 	vector<Rule*> orderedList = topologicalSort();
-//	executeCommands
-	cout << "I'm the master! My rank is " << coreId << endl;
+
+	while(1) {
+		if(currentRule >= orderedList.size())
+			break;
+
+		if(canSendTask(orderedList[currentRule])) {
+			sendTask(orderedList[currentRule]);
+			currentRule++;
+		}
+
+		receiveResponse();
+	}
 }
 
 void DistributedMake::runSlave() {
-	cout << "I'm a poor slave! My rank is " << coreId << endl;
+	while(1) {
+		receiveTask();
+		sendResponse();
+	}
 }
