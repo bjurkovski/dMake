@@ -76,9 +76,11 @@ bool DistributedMake::sendTask(Rule* rule) {
 void DistributedMake::receiveResponse() {
 	for(int i=0; i<numCores; i++) {
 		if(coresAvailable[i]) continue;
+		//cout << "trying to receive from core " << i << endl;
 
 		int completed = 0;
-		MPI_Test(&mpiRequests[i], &completed, MPI_STATUS_IGNORE);
+		MPI_Status status;
+		MPI_Test(&mpiRequests[i], &completed, &status);
 		if(completed) {
 			coresAvailable[i] = true;
 			cout << "Master received return code " << resultCodes[i] << " from core " << i << endl;
@@ -180,12 +182,11 @@ void DistributedMake::run(Makefile makefile, string startRule) {
 	vector<Rule*> orderedList = topologicalSort();
 
 	while(1) {
-		if(currentRule >= orderedList.size())
-			break;
-
-		if(canSendTask(orderedList[currentRule])) {
-			sendTask(orderedList[currentRule]);
-			currentRule++;
+		if(currentRule < orderedList.size()) {
+			if(canSendTask(orderedList[currentRule])) {
+				sendTask(orderedList[currentRule]);
+				currentRule++;
+			}
 		}
 
 		receiveResponse();
