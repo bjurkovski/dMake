@@ -66,6 +66,7 @@ bool DistributedMake::sendTask(Rule* rule) {
 			MPI_Send((void*) rule->getName().c_str(), rule->getName().size(), MPI_CHAR, currentCore, TASK_MESSAGE, MPI_COMM_WORLD);
 			MPI_Irecv(&resultCodes[currentCore], 1, MPI_INT, currentCore, RESPONSE_MESSAGE, MPI_COMM_WORLD, &mpiRequests[currentCore]);
 			coresAvailable[currentCore] = false;
+			lastUsedCore = currentCore;
 			return true;
 		}
 	}
@@ -184,11 +185,11 @@ void DistributedMake::run(Makefile makefile, string startRule) {
 	while(1) {
 		if(currentRule < orderedList.size()) {
 			if(canSendTask(orderedList[currentRule])) {
-				sendTask(orderedList[currentRule]);
-				currentRule++;
+				if(sendTask(orderedList[currentRule])) {
+					currentRule++;
+				}
 			}
 		}
-
 		receiveResponse();
 	}
 }
