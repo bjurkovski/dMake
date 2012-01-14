@@ -212,20 +212,33 @@ vector<string> DistributedMake::executeCommands(vector<string> commands) {
 			getline(tempFile2Stream, tempFile2);
 			bool goOn = true;		    
 			while(goOn) {
-				if (tempFile1 == tempFile2) { // file not modified
-					goOn = getline(tempFile1Stream, tempFile1) 
-							&& getline(tempFile2Stream, tempFile2);
-				}
-				else if (tempFile1.substr(17, tempFile1.size() - 17) 
-							== tempFile2.substr(17, tempFile2.size() - 17)) { // file modified
-					newFiles.push_back(tempFile1.substr(17, tempFile1.size() - 17));
-					goOn = getline(tempFile1Stream, tempFile1) 
-							&& getline(tempFile2Stream, tempFile2);
-				}
-				else { // new file
-					newFiles.push_back(tempFile2.substr(17, tempFile2.size() - 17));
-					goOn = getline(tempFile2Stream, tempFile2);
-				}
+			  // file not modified
+			  if (tempFile1 == tempFile2) { 
+			    goOn = getline(tempFile1Stream, tempFile1) 
+			      && getline(tempFile2Stream, tempFile2);
+			  }
+			  // file modified
+			  else if (tempFile1.substr(17, tempFile1.size() - 17) 
+				   == tempFile2.substr(17, tempFile2.size() - 17)) { 
+			    newFiles.push_back(tempFile1.substr(17, tempFile1.size() - 17));
+			    goOn = getline(tempFile1Stream, tempFile1) 
+			      && getline(tempFile2Stream, tempFile2);
+			  }
+			  // removed file
+			  else if (tempFile1.substr(17, tempFile1.size() - 17) 
+				   < tempFile2.substr(17, tempFile2.size() - 17)){ 
+			    goOn = getline(tempFile1Stream, tempFile1);
+			  }
+			  // new file
+			  else{
+			    newFiles.push_back(tempFile2.substr(17, tempFile2.size() - 17));
+			    goOn = getline(tempFile2Stream, tempFile2);
+			  }
+			}
+			// Remaining new files
+			while (goOn) {
+			  newFiles.push_back(tempFile2.substr(17, tempFile2.size() - 17));
+			  goOn = getline(tempFile2Stream, tempFile2);
 			}
 			//cout << "File produced : " << newFiles << endl;
 		}
