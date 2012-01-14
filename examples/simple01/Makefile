@@ -1,4 +1,4 @@
-all: main.cpp bib.o bib2.o bib3.o
+all: main.cpp bib.o bib2.o bib3.o bib.h bib2.h bib3.h
 	g++ $^ -o exec
 
 bib.o: bib.cpp bib.h

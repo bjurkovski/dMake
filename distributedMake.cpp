@@ -211,8 +211,9 @@ vector<string> DistributedMake::executeCommands(vector<string> commands) {
 	"procFolder".
 */
 	const string tempFile = ".tempFile";
-	string lsCommand = "ls -l | sed 's/  */ /g' |cut -d ' ' -f 6-8 > " + tempFile;
-	string rmCommand = "rm -f " + tempFile + "*";
+	string folder = procFolder; // convert char[20] into string
+	string lsCommand = "cd "+folder+" && ls -l | sed 's/  */ /g' |cut -d ' ' -f 6-8 > " + tempFile;
+	string rmCommand = "cd "+folder+" && rm -f " + tempFile + "*";
 
 	vector<string> newFiles; // Files produced by the execution of the commands
 
@@ -222,12 +223,12 @@ vector<string> DistributedMake::executeCommands(vector<string> commands) {
 		// Execution
 		// TODO : redirect the output flow in the shell where dmake is executed
 		system((lsCommand + "1").c_str());
-		system(commands[j].c_str());
+		system(("cd "+folder+" &&"+commands[j]).c_str());
 		system((lsCommand + "2").c_str());
 
 		string tempFile1, tempFile2;
-		ifstream tempFile1Stream((tempFile + "1").c_str(), ios::in); 
-		ifstream tempFile2Stream((tempFile + "2").c_str(), ios::in); 
+		ifstream tempFile1Stream((folder+"/"+tempFile + "1").c_str(), ios::in); 
+		ifstream tempFile2Stream((folder+"/"+tempFile + "2").c_str(), ios::in); 
 		if (tempFile1Stream && tempFile2Stream){
 			// first line is empty
 			getline(tempFile1Stream, tempFile1);
