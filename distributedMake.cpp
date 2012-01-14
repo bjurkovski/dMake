@@ -114,7 +114,7 @@ bool DistributedMake::sendTask(Rule* rule) {
 			MPI_Send(&numCommands, 1, MPI_INT, currentCore, NUM_COMMANDS_MESSAGE, MPI_COMM_WORLD);
 
 			string serializedCommands = "";
-			for(unsigned int j=0; j<numCommands; j++) {
+			for(int j=0; j<numCommands; j++) {
 				serializedCommands += commands[j] + "\n";
 			}
 			MPI_Send((void*) serializedCommands.c_str(), serializedCommands.size(), MPI_CHAR, currentCore, COMMANDS_MESSAGE, MPI_COMM_WORLD);
@@ -179,7 +179,7 @@ vector<string> DistributedMake::receiveTask() {
 
 		MPI_Recv(&numCommands, 1, MPI_INT, 0, NUM_COMMANDS_MESSAGE, MPI_COMM_WORLD, &status);
 
-		buffer = (char*) malloc(sizeof(char)*numCommands(maxCommandSize+1));
+		buffer = (char*) malloc(sizeof(char)*numCommands*(maxCommandSize+1));
 		MPI_Recv(buffer, numCommands*(maxCommandSize+1), MPI_INT, 0, COMMANDS_MESSAGE, MPI_COMM_WORLD, &status);
 		cout << "Core " << coreId << " received commands" << endl << buffer << endl;
 		free(buffer);
