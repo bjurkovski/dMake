@@ -117,7 +117,8 @@ bool DistributedMake::sendTask(Rule* rule) {
 			for(int j=0; j<numCommands; j++) {
 				serializedCommands += commands[j] + "\n";
 			}
-			MPI_Send((void*) serializedCommands.c_str(), serializedCommands.size(), MPI_CHAR, currentCore, COMMANDS_MESSAGE, MPI_COMM_WORLD);
+			if (numCommands != 0)
+			  MPI_Send((void*) serializedCommands.c_str(), serializedCommands.size(), MPI_CHAR, currentCore, COMMANDS_MESSAGE, MPI_COMM_WORLD);
 
 			MPI_Irecv(&resultCodes[currentCore], 1, MPI_INT, currentCore, RESPONSE_MESSAGE, MPI_COMM_WORLD, &mpiRequests[currentCore]);
 			coreWorkingOn[currentCore] = rule->getName();
@@ -178,12 +179,19 @@ vector<string> DistributedMake::receiveTask() {
 		}
 
 		MPI_Recv(&numCommands, 1, MPI_INT, 0, NUM_COMMANDS_MESSAGE, MPI_COMM_WORLD, &status);
+		
+		if (numCommands != 0){
+		  buffer = (char*) malloc(sizeof(char)*numCommands*(maxCommandSize+1)+1);
+		  MPI_Recv(buffer, numCommands*(maxCommandSize+1), MPI_INT, 0, COMMANDS_MESSAGE, MPI_COMM_WORLD, &status);
+		  MPI_Get_count(&status, MPI_CHAR, &sizeReceived);
+		  buffer[sizeReceived] = '\0';
+		  
+		  cout << "Core " << coreId << " received commands" << endl << buffer << endl;
+		  free(buffer);
+		}
 
-		buffer = (char*) malloc(sizeof(char)*numCommands*(maxCommandSize+1));
-		MPI_Recv(buffer, numCommands*(maxCommandSize+1), MPI_INT, 0, COMMANDS_MESSAGE, MPI_COMM_WORLD, &status);
-		cout << "Core " << coreId << " received commands" << endl << buffer << endl;
-		free(buffer);
-
+		// TODO correct
+		commands.push_back("coucou :)");
 		return commands;
 	}
 	else {
