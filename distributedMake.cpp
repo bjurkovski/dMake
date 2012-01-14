@@ -50,7 +50,7 @@ vector<Rule*> DistributedMake::topologicalSort() {
 }
 
 char* DistributedMake::serializeFile(string filename, int& size, string folder) {
-	FILE* file = fopen((folder + "/" + filename).c_str(), "r");
+	FILE* file = fopen((folder + filename).c_str(), "r");
 	if(!file) {
 		return NULL;
 	}
@@ -75,9 +75,13 @@ char* DistributedMake::serializeFile(string filename, int& size, string folder) 
 }
 
 char* DistributedMake::deserializeFile(char* file, string& filename) {
-	filename = string(strtok(file, "\n"));
-
-	return &file[filename.size() + 1];
+  cout << "begin deserialize File"<< endl;
+  char* token = strtok(file, "\n");
+  if (token==NULL)
+    cout << "token null in deserializeFile"<< endl;
+  filename = string(token);
+  cout << "before end deserialize File"<< endl;
+  return &file[filename.size() + 1];
 }
 
 bool DistributedMake::canSendTask(Rule* rule) {
@@ -104,6 +108,10 @@ bool DistributedMake::sendTask(Rule* rule) {
 			for(unsigned int currentFile=0; currentFile<numFiles; currentFile++) {
 				int messageSize;
 				char* buffer = serializeFile(files[currentFile]->getName(), messageSize);
+				if(buffer == NULL) {
+				  cout << "serializeFile returned Null" << endl;
+				  exit(1);
+				}
 				MPI_Send(&messageSize, 1, MPI_INT, currentCore, FILE_SIZE_MESSAGE, MPI_COMM_WORLD);
 				MPI_Send(buffer, messageSize, MPI_CHAR, currentCore, FILE_MESSAGE, MPI_COMM_WORLD);
 				free(buffer);
@@ -121,7 +129,7 @@ bool DistributedMake::sendTask(Rule* rule) {
 			if (numCommands != 0)
 			  MPI_Send((void*) serializedCommands.c_str(), serializedCommands.size(), MPI_CHAR, currentCore, COMMANDS_MESSAGE, MPI_COMM_WORLD);
 
-			MPI_Irecv(&resultCodes[currentCore], 1, MPI_INT, currentCore, RESPONSE_MESSAGE, MPI_COMM_WORLD, &mpiRequests[currentCore]);
+			MPI_Irecv(&resultCodes[currentCore], 1, MPI_INT, currentCore, NUM_FILES_MESSAGE, MPI_COMM_WORLD, &mpiRequests[currentCore]);
 			coreWorkingOn[currentCore] = rule->getName();
 			lastUsedCore = currentCore;
 			return true;
@@ -142,13 +150,24 @@ void DistributedMake::receiveResponse() {
 
 		MPI_Test(&mpiRequests[i], &completed, &status);
 		if(completed) {
+		  cout << "enter completed in receiveResponse"<< endl;
+		  cout << "result code = " << resultCodes[i] << endl;
 			for(int j=0; j<resultCodes[i]; j++) {
-				MPI_Recv(&fileSize, 1, MPI_INT, 0, FILE_SIZE_MESSAGE, MPI_COMM_WORLD, &status);
+			  cout << "before receive size" << endl;
+				MPI_Recv(&fileSize, 1, MPI_INT, i, FILE_SIZE_MESSAGE, MPI_COMM_WORLD, &status);
+				cout << "after receive size" << endl;
+				cout << "received File size :"<< fileSize << endl;
 				buffer = (char*) malloc(sizeof(char)*fileSize+1);
-				MPI_Recv(buffer, fileSize, MPI_CHAR, 0, FILE_MESSAGE, MPI_COMM_WORLD, &status);
+				if(buffer == NULL) {
+				  cout << "Couldn't allocate buffer to read File in ReceiveResponse" << endl;
+				  exit(1);
+				}
+
+				MPI_Recv(buffer, fileSize, MPI_CHAR, i, FILE_MESSAGE, MPI_COMM_WORLD, &status);
+				cout << "after receive files" << endl;
 				MPI_Get_count(&status, MPI_CHAR, &sizeReceived);
 				buffer[sizeReceived] = '\0';
-
+				cout << "put \0" << endl;
 				string filename;
 				char* content = deserializeFile(buffer, filename);
 				cout << "Master received file '" << filename << "'" << endl;
@@ -181,19 +200,33 @@ vector<string> DistributedMake::receiveTask() {
 	MPI_Test(&mpiRequests[0], &completed, &status);
 	if(completed) {
 		for(int i=0; i<numFilesToReceive; i++) {
+		  cout << "before receive size" << endl;
 			MPI_Recv(&fileSize, 1, MPI_INT, 0, FILE_SIZE_MESSAGE, MPI_COMM_WORLD, &status);
+			cout << "after receive size" << endl;
 			buffer = (char*) malloc(sizeof(char)*fileSize+1);
+			if(buffer == NULL) {
+			  cout << "Couldn't allocate buffer to read File in ReceiveTask" << endl;
+			  exit(1);
+			}
+			cout << "before receive files" <<endl;
 			MPI_Recv(buffer, fileSize, MPI_CHAR, 0, FILE_MESSAGE, MPI_COMM_WORLD, &status);
+			cout << "after receive files" <<endl;
 			MPI_Get_count(&status, MPI_CHAR, &sizeReceived);
 			buffer[sizeReceived] = '\0';
+			cout << "put \0" << endl;
 
 			string filename;
 			char* content = deserializeFile(buffer, filename);
+			if(buffer == NULL) {
+			  cout << "deserializeFile returned Null" << endl;
+			  exit(1);
+			}
+
 			cout << "Core " << coreId << " received dependency '" << filename << "'" << endl;
 
 			int filenameSize = filename.size();
 			char newFilePath[50];
-			sprintf(newFilePath, "%s/%s", procFolder, filename.c_str());
+			sprintf(newFilePath, "%s%s", procFolder, filename.c_str());
 			FILE* newFile = fopen(newFilePath, "w");
 			fwrite(content, sizeof(char), fileSize - filenameSize - 1, newFile);
 
@@ -201,10 +234,15 @@ vector<string> DistributedMake::receiveTask() {
 			free(buffer);
 		}
 
-		MPI_Recv(&numCommands, 1, MPI_INT, 0, NUM_COMMANDS_MESSAGE, MPI_COMM_WORLD, &status);
+  		MPI_Recv(&numCommands, 1, MPI_INT, 0, NUM_COMMANDS_MESSAGE, MPI_COMM_WORLD, &status);
 		
 		if (numCommands != 0){
 			buffer = (char*) malloc(sizeof(char)*numCommands*(maxCommandSize+1)+1);
+			if(buffer == NULL) {
+			  cout << "Couldn't allocate buffer to read commands in ReceiveTasks" << endl;
+			  exit(1);
+			}
+
 			MPI_Recv(buffer, numCommands*(maxCommandSize+1), MPI_INT, 0, COMMANDS_MESSAGE, MPI_COMM_WORLD, &status);
 			MPI_Get_count(&status, MPI_CHAR, &sizeReceived);
 			buffer[sizeReceived] = '\0';
@@ -249,8 +287,8 @@ vector<string> DistributedMake::executeCommands(vector<string> commands) {
 		system((lsCommand + "2").c_str());
 
 		string tempFile1, tempFile2;
-		ifstream tempFile1Stream((folder+"/"+tempFile + "1").c_str(), ios::in); 
-		ifstream tempFile2Stream((folder+"/"+tempFile + "2").c_str(), ios::in); 
+		ifstream tempFile1Stream((folder+tempFile + "1").c_str(), ios::in); 
+		ifstream tempFile2Stream((folder+tempFile + "2").c_str(), ios::in); 
 		if (tempFile1Stream && tempFile2Stream){
 			// first line is empty
 			getline(tempFile1Stream, tempFile1);
@@ -296,12 +334,22 @@ vector<string> DistributedMake::executeCommands(vector<string> commands) {
 
 void DistributedMake::sendResponse(vector<string> newFiles) {
 	int numFiles = newFiles.size();
+	cout << "numFiles in sendResponse :" << numFiles << endl;
 	MPI_Send(&numFiles, 1, MPI_INT, 0, NUM_FILES_MESSAGE, MPI_COMM_WORLD);
 	for(unsigned int i=0; i<newFiles.size(); i++) {
 		int messageSize;
+		cout << "before serialize"<< endl;
 		char* buffer = serializeFile(newFiles[i], messageSize, procFolder);
+		if(buffer == NULL) {
+		  cout << "serializeFile returned Null" << endl;
+		  exit(1);
+		}
+		cout << "after serialize" << endl;
 		MPI_Send(&messageSize, 1, MPI_INT, 0, FILE_SIZE_MESSAGE, MPI_COMM_WORLD);
+		cout << "after send size in sendResponse" << endl;
+		cout << "message size :" << messageSize << endl;
 		MPI_Send(buffer, messageSize, MPI_CHAR, 0, FILE_MESSAGE, MPI_COMM_WORLD);
+		cout << "after send in sendResponse"<< endl;
 		free(buffer);
 	}
 	cout << "Core " << coreId << " is sending result back to master!" << endl;
@@ -373,7 +421,7 @@ void DistributedMake::runSlave() {
 
 	char mkdirCommand[80];
 	char rmdirCommand[80];
-	sprintf(procFolder, ".dmake_proc%d", coreId);
+	sprintf(procFolder, ".dmake_proc%d/", coreId);
 	sprintf(mkdirCommand, "mkdir %s 2> /dev/null", procFolder);
 	system(mkdirCommand);
 
