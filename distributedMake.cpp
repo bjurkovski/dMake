@@ -154,7 +154,6 @@ void DistributedMake::receiveResponse() {
 				cout << "Master received file '" << filename << "'" << endl;
 
 				int filenameSize = filename.size();
-				char newFilePath[50];
 				FILE* newFile = fopen(filename.c_str(), "w");
 				fwrite(content, sizeof(char), fileSize - filenameSize - 1, newFile);
 
@@ -300,7 +299,7 @@ void DistributedMake::sendResponse(vector<string> newFiles) {
 	MPI_Send(&numFiles, 1, MPI_INT, 0, NUM_FILES_MESSAGE, MPI_COMM_WORLD);
 	for(unsigned int i=0; i<newFiles.size(); i++) {
 		int messageSize;
-		char* buffer = serializeFile(newFiles[i]->getName(), messageSize, procFolder);
+		char* buffer = serializeFile(newFiles[i], messageSize, procFolder);
 		MPI_Send(&messageSize, 1, MPI_INT, 0, FILE_SIZE_MESSAGE, MPI_COMM_WORLD);
 		MPI_Send(buffer, messageSize, MPI_CHAR, 0, FILE_MESSAGE, MPI_COMM_WORLD);
 		free(buffer);
