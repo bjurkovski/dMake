@@ -49,8 +49,8 @@ vector<Rule*> DistributedMake::topologicalSort() {
 	return orderedList;
 }
 
-char* DistributedMake::serializeFile(string filename, int& size) {
-	FILE* file = fopen(filename.c_str(), "r");
+char* DistributedMake::serializeFile(string filename, int& size, string folder) {
+	FILE* file = fopen((folder + "/" + filename).c_str(), "r");
 	if(!file) {
 		return NULL;
 	}
@@ -137,11 +137,34 @@ void DistributedMake::receiveResponse() {
 
 		int completed = 0;
 		MPI_Status status;
+		int fileSize, sizeReceived;
+		char* buffer;
+
 		MPI_Test(&mpiRequests[i], &completed, &status);
 		if(completed) {
+			for(int j=0; j<resultCodes[i]; j++) {
+				MPI_Recv(&fileSize, 1, MPI_INT, 0, FILE_SIZE_MESSAGE, MPI_COMM_WORLD, &status);
+				buffer = (char*) malloc(sizeof(char)*fileSize+1);
+				MPI_Recv(buffer, fileSize, MPI_CHAR, 0, FILE_MESSAGE, MPI_COMM_WORLD, &status);
+				MPI_Get_count(&status, MPI_CHAR, &sizeReceived);
+				buffer[sizeReceived] = '\0';
+
+				string filename;
+				char* content = deserializeFile(buffer, filename);
+				cout << "Master received file '" << filename << "'" << endl;
+
+				int filenameSize = filename.size();
+				char newFilePath[50];
+				FILE* newFile = fopen(filename.c_str(), "w");
+				fwrite(content, sizeof(char), fileSize - filenameSize - 1, newFile);
+
+				fclose(newFile);
+				free(buffer);
+			}
+
 			ruleIsFinished[coreWorkingOn[i]] = true;
 			coreWorkingOn[i] = "";
-			cout << "Master received return code " << resultCodes[i] << " from core " << i << endl;
+			cout << "Master received " << resultCodes[i] << " files from core " << i << endl;
 		}
 	}
 }
@@ -273,8 +296,15 @@ vector<string> DistributedMake::executeCommands(vector<string> commands) {
 }
 
 void DistributedMake::sendResponse(vector<string> newFiles) {
-	int resultCode = 1;
-	MPI_Send(&resultCode, 1, MPI_INT, 0, RESPONSE_MESSAGE, MPI_COMM_WORLD);
+	int numFiles = newFiles.size();
+	MPI_Send(&numFiles, 1, MPI_INT, 0, NUM_FILES_MESSAGE, MPI_COMM_WORLD);
+	for(unsigned int i=0; i<newFiles.size(); i++) {
+		int messageSize;
+		char* buffer = serializeFile(newFiles[i]->getName(), messageSize, procFolder);
+		MPI_Send(&messageSize, 1, MPI_INT, 0, FILE_SIZE_MESSAGE, MPI_COMM_WORLD);
+		MPI_Send(buffer, messageSize, MPI_CHAR, 0, FILE_MESSAGE, MPI_COMM_WORLD);
+		free(buffer);
+	}
 	cout << "Core " << coreId << " is sending result back to master!" << endl;
 	MPI_Irecv(&numFilesToReceive, 1, MPI_INT, 0, NUM_FILES_MESSAGE, MPI_COMM_WORLD, &mpiRequests[0]);
 }
