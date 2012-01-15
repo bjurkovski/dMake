@@ -66,6 +66,15 @@ vector<Rule*> Rule::getRuleDependencies() {
 	return d;
 }
 
+vector<Rule*> Rule::getFileDependencies() {
+	vector<Rule*> d;
+	for(unsigned int i=0; i<dependencies.size(); i++) {
+		if(dependencies[i]->isFile())
+			d.push_back(dependencies[i]);
+	}
+	return d;
+}
+
 vector<string> Rule::getCommands() {
 	return commands;
 }

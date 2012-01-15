@@ -17,7 +17,8 @@ enum {
 	RESPONSE_MESSAGE,
 	NUM_FILES_MESSAGE,
 	FILE_SIZE_MESSAGE,
-	FILE_MESSAGE
+	FILE_MESSAGE,
+	FINISH_MESSAGE
 };
 
 class DistributedMake : public Make {
@@ -28,7 +29,7 @@ class DistributedMake : public Make {
 		std::map<std::string, Rule*> rules;
 		std::map<std::string, bool> ruleIsFinished;
 		std::set<Rule*> initialSet;
-		std::vector<bool> coresAvailable;
+		std::vector<std::string> coreWorkingOn;
 		std::vector<MPI_Request> mpiRequests;
 		std::vector<int> resultCodes;
 	private:

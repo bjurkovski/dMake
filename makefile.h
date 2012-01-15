@@ -35,6 +35,7 @@ class Rule {
 		std::string getName();
 		std::vector<Rule*> getDependencies();
 		std::vector<Rule*> getRuleDependencies();
+		std::vector<Rule*> getFileDependencies();
 		std::vector<std::string> getCommands();
 		std::vector<Rule*> getRulesUsing();
 

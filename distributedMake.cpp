@@ -54,6 +54,13 @@ vector<Rule*> DistributedMake::topologicalSort() {
 }
 
 bool DistributedMake::canSendTask(Rule* rule) {
+	vector<Rule*> dependencies = rule->getRuleDependencies();
+	for(unsigned int i=0; i<dependencies.size(); i++) {
+		if(!ruleIsFinished[dependencies[i]->getName()]) {
+			//cout << "Rule " <<dependencies[i]->getName() << " is not finished. Can't continue yet." << endl;
+			return false;
+		}
+	}
 	return true;
 }
 
@@ -61,11 +68,20 @@ bool DistributedMake::sendTask(Rule* rule) {
 	for(int i=0; i<numCores; i++) {
 		int currentCore = (lastUsedCore + i + 1) % numCores;
 		if(currentCore == coreId) continue;
-		if(coresAvailable[currentCore]) {
+		if(coreWorkingOn[currentCore] == "") {
 			cout << "Dispatching rule '" << rule->getName() << "' to core " << currentCore << endl;
+
+			vector<Rule*> files = rule->getFileDependencies();
+			unsigned int numFiles = files.size();
+			MPI_Send(&numFiles, 1, MPI_INT, currentCore, NUM_FILES_MESSAGE, MPI_COMM_WORLD);
+			for(unsigned int currentFile=0; currentFile<numFiles; currentFile++) {
+				int fileSize = 1;
+				MPI_Send(&fileSize, 1, MPI_INT, currentCore, FILE_SIZE_MESSAGE, MPI_COMM_WORLD);
+			}
+
 			MPI_Send((void*) rule->getName().c_str(), rule->getName().size(), MPI_CHAR, currentCore, TASK_MESSAGE, MPI_COMM_WORLD);
 			MPI_Irecv(&resultCodes[currentCore], 1, MPI_INT, currentCore, RESPONSE_MESSAGE, MPI_COMM_WORLD, &mpiRequests[currentCore]);
-			coresAvailable[currentCore] = false;
+			coreWorkingOn[currentCore] = rule->getName();
 			lastUsedCore = currentCore;
 			return true;
 		}
@@ -76,24 +92,34 @@ bool DistributedMake::sendTask(Rule* rule) {
 
 void DistributedMake::receiveResponse() {
 	for(int i=0; i<numCores; i++) {
-		if(coresAvailable[i]) continue;
+		if(coreWorkingOn[i] == "") continue;
 		//cout << "trying to receive from core " << i << endl;
 
 		int completed = 0;
 		MPI_Status status;
 		MPI_Test(&mpiRequests[i], &completed, &status);
 		if(completed) {
-			coresAvailable[i] = true;
+			ruleIsFinished[coreWorkingOn[i]] = true;
+			coreWorkingOn[i] = "";
 			cout << "Master received return code " << resultCodes[i] << " from core " << i << endl;
 		}
 	}
 }
 
 void DistributedMake::receiveTask() {
+	int numFiles, fileSize;
 	const int maxTaskNameSize = 256;
 	int sizeReceived;
 	char buf[maxTaskNameSize];
 	MPI_Status status;
+
+	MPI_Recv(&numFiles, 1, MPI_INT, 0, NUM_FILES_MESSAGE, MPI_COMM_WORLD, &status);
+//	cout << "Core " << coreId << " will receive " << numFiles << " files." << endl;
+	for(int i=0; i<numFiles; i++) {
+		MPI_Recv(&fileSize, 1, MPI_INT, 0, FILE_SIZE_MESSAGE, MPI_COMM_WORLD, &status);
+//		cout << "Core " << coreId << " is receiving a dependency file." << endl;
+	}
+
 	MPI_Recv(buf, maxTaskNameSize, MPI_CHAR, 0, TASK_MESSAGE, MPI_COMM_WORLD, &status);
 	MPI_Get_count(&status, MPI_CHAR, &sizeReceived);
 	buf[sizeReceived] = '\0';
@@ -155,7 +181,7 @@ void DistributedMake::sendResponse() {
 	cout << "Core " << coreId << " is sending result back to master!" << endl;
 }
 
-DistributedMake::DistributedMake(int numCores, int coreId) : coresAvailable(numCores, true), resultCodes(numCores, 0) {
+DistributedMake::DistributedMake(int numCores, int coreId) : coreWorkingOn(numCores, ""), resultCodes(numCores, 0) {
 	this->numCores = numCores;
 	this->coreId = coreId;
 	this->lastUsedCore = 0;
@@ -183,6 +209,19 @@ void DistributedMake::run(Makefile makefile, string startRule) {
 	vector<Rule*> orderedList = topologicalSort();
 
 	while(1) {
+		if(ruleIsFinished[startRule]) {
+			int sendValue = 1;
+//			TO DO: Try to use broadcast. Problem: we don't have a tag identifying
+//			the kind of message being passed.
+//			MPI_Bcast(&sendValue, 1, MPI_INT, coreId, MPI_COMM_WORLD);
+			for(int i=0; i<numCores; i++) {
+				if(i==coreId) continue;
+				MPI_Send(&sendValue, 1, MPI_INT, i, FINISH_MESSAGE, MPI_COMM_WORLD);
+			}
+			cout << "Master is finishing. Sending message to slaves." << endl;
+			break;
+		}
+
 		if(currentRule < orderedList.size()) {
 			if(canSendTask(orderedList[currentRule])) {
 				if(sendTask(orderedList[currentRule])) {
@@ -195,7 +234,21 @@ void DistributedMake::run(Makefile makefile, string startRule) {
 }
 
 void DistributedMake::runSlave() {
+	int value = 0;
+	int completed = 0;
+	MPI_Request request;
+	MPI_Status status;
+
+//	MPI_Irecv(&resultCodes[currentCore], 1, MPI_INT, currentCore, RESPONSE_MESSAGE, MPI_COMM_WORLD, &mpiRequests[currentCore]);
+	MPI_Irecv(&value, 1, MPI_INT, MPI_ANY_SOURCE, FINISH_MESSAGE, MPI_COMM_WORLD, &request);
 	while(1) {
+		MPI_Test(&request, &completed, &status);
+		//cout << coreId << " " << completed << " " << status.MPI_ERROR << endl;
+		if(completed) {
+			cout << "Slave " << coreId << " will finish its execution." << endl;
+			break;
+		}
+
 		receiveTask();
 		sendResponse();
 	}
