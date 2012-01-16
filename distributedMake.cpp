@@ -12,7 +12,6 @@ void DistributedMake::createInitialSet(string startRule) {
 		if(!deps[i]->isFile()) numDependencies++;
 	}
 
-	//cout << startRule << " has " << numDependencies << " dependencies... isFile = " << rule->isFile() << endl;
 	if((numDependencies == 0) && !rule->isFile()) {
 		initialSet.insert(rule);
 	}
@@ -31,17 +30,14 @@ vector<Rule*> DistributedMake::topologicalSort() {
 		dependencies[i->second] = i->second->getRuleDependencies();
 	}
 
-	//cout << "InitialSet size: " << initialSet.size() << endl;
 	while(!initialSet.empty()) {
 		Rule* r = *(initialSet.begin());
 		initialSet.erase(initialSet.begin());
 
 		orderedList.push_back(r);
 
-		//cout << "Checking " << r->getName() << endl;
 		vector<Rule*> usedBy = r->getRulesUsing();
 		for(unsigned int i=0; i<usedBy.size(); i++) {
-			//cout << "   > " << usedBy[i]->getName() << endl;
 			vector<Rule*>::iterator it = find(dependencies[usedBy[i]].begin(), dependencies[usedBy[i]].end(), r);
 			dependencies[usedBy[i]].erase(it);
 
@@ -51,6 +47,37 @@ vector<Rule*> DistributedMake::topologicalSort() {
 	}
 
 	return orderedList;
+}
+
+char* DistributedMake::serializeFile(string filename, int& size) {
+	FILE* file = fopen(filename.c_str(), "r");
+	if(!file) {
+		return NULL;
+	}
+	fseek(file, 0, SEEK_END); 
+
+	int fileSize = ftell(file);
+	int filenameSize = filename.size();
+	// The message will contain one line with the file name and a '\n' and then the content of the file
+	size = fileSize + filenameSize + 1;
+
+	rewind(file);
+	char* buffer = (char*) malloc(sizeof(char)*size);
+	if(buffer == NULL) {
+		cout << "Couldn't allocate buffer to read " << filename << "..." << endl;
+		exit(1);
+	}
+	sprintf(buffer, "%s\n", filename.c_str());
+	fread(&buffer[filenameSize+1], sizeof(char), fileSize, file);
+	fclose(file);
+
+	return buffer;
+}
+
+char* DistributedMake::deserializeFile(char* file, string& filename) {
+	filename = string(strtok(file, "\n"));
+
+	return &file[filename.size() + 1];
 }
 
 bool DistributedMake::canSendTask(Rule* rule) {
@@ -75,8 +102,11 @@ bool DistributedMake::sendTask(Rule* rule) {
 			unsigned int numFiles = files.size();
 			MPI_Send(&numFiles, 1, MPI_INT, currentCore, NUM_FILES_MESSAGE, MPI_COMM_WORLD);
 			for(unsigned int currentFile=0; currentFile<numFiles; currentFile++) {
-				int fileSize = 1;
-				MPI_Send(&fileSize, 1, MPI_INT, currentCore, FILE_SIZE_MESSAGE, MPI_COMM_WORLD);
+				int messageSize;
+				char* buffer = serializeFile(files[currentFile]->getName(), messageSize);
+				MPI_Send(&messageSize, 1, MPI_INT, currentCore, FILE_SIZE_MESSAGE, MPI_COMM_WORLD);
+				MPI_Send(buffer, messageSize, MPI_CHAR, currentCore, FILE_MESSAGE, MPI_COMM_WORLD);
+				free(buffer);
 			}
 
 			MPI_Send((void*) rule->getName().c_str(), rule->getName().size(), MPI_CHAR, currentCore, TASK_MESSAGE, MPI_COMM_WORLD);
@@ -93,7 +123,6 @@ bool DistributedMake::sendTask(Rule* rule) {
 void DistributedMake::receiveResponse() {
 	for(int i=0; i<numCores; i++) {
 		if(coreWorkingOn[i] == "") continue;
-		//cout << "trying to receive from core " << i << endl;
 
 		int completed = 0;
 		MPI_Status status;
@@ -106,27 +135,57 @@ void DistributedMake::receiveResponse() {
 	}
 }
 
-void DistributedMake::receiveTask() {
-	int numFiles, fileSize;
+bool DistributedMake::receiveTask() {
+	int fileSize, completed=0;
 	const int maxTaskNameSize = 256;
 	int sizeReceived;
 	char buf[maxTaskNameSize];
 	MPI_Status status;
 
-	MPI_Recv(&numFiles, 1, MPI_INT, 0, NUM_FILES_MESSAGE, MPI_COMM_WORLD, &status);
+//	MPI_Recv(&numFiles, 1, MPI_INT, 0, NUM_FILES_MESSAGE, MPI_COMM_WORLD, &status);
 //	cout << "Core " << coreId << " will receive " << numFiles << " files." << endl;
-	for(int i=0; i<numFiles; i++) {
-		MPI_Recv(&fileSize, 1, MPI_INT, 0, FILE_SIZE_MESSAGE, MPI_COMM_WORLD, &status);
-//		cout << "Core " << coreId << " is receiving a dependency file." << endl;
-	}
+	MPI_Test(&mpiRequests[0], &completed, &status);
+	if(completed) {
+		for(int i=0; i<numFilesToReceive; i++) {
+			MPI_Recv(&fileSize, 1, MPI_INT, 0, FILE_SIZE_MESSAGE, MPI_COMM_WORLD, &status);
+			char* buffer = (char*) malloc(sizeof(char)*fileSize+1);
+			MPI_Recv(buffer, fileSize, MPI_CHAR, 0, FILE_MESSAGE, MPI_COMM_WORLD, &status);
+			MPI_Get_count(&status, MPI_CHAR, &sizeReceived);
+			buffer[sizeReceived] = '\0';
 
-	MPI_Recv(buf, maxTaskNameSize, MPI_CHAR, 0, TASK_MESSAGE, MPI_COMM_WORLD, &status);
-	MPI_Get_count(&status, MPI_CHAR, &sizeReceived);
-	buf[sizeReceived] = '\0';
-	cout << "Core " << coreId << " received task '" << buf << "'" << endl;
+
+			string filename;
+			char* content = deserializeFile(buffer, filename);
+			cout << "Core " << coreId << " received dependency '" << filename << "'" << endl;
+
+			int filenameSize = filename.size();
+			char newFilePath[50];
+			sprintf(newFilePath, "%s/%s", procFolder, filename.c_str());
+			FILE* newFile = fopen(newFilePath, "w");
+			fwrite(content, sizeof(char), fileSize - filenameSize - 1, newFile);
+
+			fclose(newFile);
+			free(buffer);
+		}
+
+		MPI_Recv(buf, maxTaskNameSize, MPI_CHAR, 0, TASK_MESSAGE, MPI_COMM_WORLD, &status);
+		MPI_Get_count(&status, MPI_CHAR, &sizeReceived);
+		buf[sizeReceived] = '\0';
+		cout << "Core " << coreId << " received task '" << buf << "'" << endl;
+		return true;
+	}
+	else {
+		return false;
+	}
 }
 
 vector<string> DistributedMake::executeCommands(vector<string> commands) {
+/*
+	TO DO: Since all the received files will be in temporary directories 
+	(like .dmake_proc1, .dmake_proc2, etc) we should add a "cd .dmake_procX && "
+	before each command. The name of the right folder is stored in the variable
+	"procFolder".
+*/
 	const string tempFile = ".tempFile";
 	string lsCommand = "ls -l | sed 's/  */ /g' |cut -d ' ' -f 6-8 > " + tempFile;
 	string rmCommand = "rm -f " + tempFile + "*";
@@ -179,6 +238,7 @@ void DistributedMake::sendResponse() {
 	int resultCode = 1;
 	MPI_Send(&resultCode, 1, MPI_INT, 0, RESPONSE_MESSAGE, MPI_COMM_WORLD);
 	cout << "Core " << coreId << " is sending result back to master!" << endl;
+	MPI_Irecv(&numFilesToReceive, 1, MPI_INT, 0, NUM_FILES_MESSAGE, MPI_COMM_WORLD, &mpiRequests[0]);
 }
 
 DistributedMake::DistributedMake(int numCores, int coreId) : coreWorkingOn(numCores, ""), resultCodes(numCores, 0) {
@@ -234,22 +294,33 @@ void DistributedMake::run(Makefile makefile, string startRule) {
 }
 
 void DistributedMake::runSlave() {
+
 	int value = 0;
 	int completed = 0;
 	MPI_Request request;
 	MPI_Status status;
 
-//	MPI_Irecv(&resultCodes[currentCore], 1, MPI_INT, currentCore, RESPONSE_MESSAGE, MPI_COMM_WORLD, &mpiRequests[currentCore]);
 	MPI_Irecv(&value, 1, MPI_INT, MPI_ANY_SOURCE, FINISH_MESSAGE, MPI_COMM_WORLD, &request);
+	MPI_Irecv(&numFilesToReceive, 1, MPI_INT, 0, NUM_FILES_MESSAGE, MPI_COMM_WORLD, &mpiRequests[0]);
+
+	char mkdirCommand[80];
+	char rmdirCommand[80];
+	sprintf(procFolder, ".dmake_proc%d", coreId);
+	sprintf(mkdirCommand, "mkdir %s 2> /dev/null", procFolder);
+	system(mkdirCommand);
+
 	while(1) {
 		MPI_Test(&request, &completed, &status);
-		//cout << coreId << " " << completed << " " << status.MPI_ERROR << endl;
 		if(completed) {
-			cout << "Slave " << coreId << " will finish its execution." << endl;
+			cout << "Core " << coreId << " will finish its execution." << endl;
 			break;
 		}
 
-		receiveTask();
-		sendResponse();
+		if(receiveTask()) {
+			sendResponse();
+		}
 	}
+
+	sprintf(rmdirCommand, "rm %s -rf 2> /dev/null", procFolder);
+	system(rmdirCommand);
 }

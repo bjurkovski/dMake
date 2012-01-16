@@ -33,13 +33,19 @@ class DistributedMake : public Make {
 		std::vector<MPI_Request> mpiRequests;
 		std::vector<int> resultCodes;
 	private:
+		char procFolder[20];
+		int numFilesToReceive;
+
 		void createInitialSet(std::string startRule);
 		std::vector<Rule*> topologicalSort();
+
+		char* serializeFile(std::string filename, int& size);
+		char* deserializeFile(char* file, std::string& filename);
 
 		bool canSendTask(Rule* rule);
 		bool sendTask(Rule* rule);
 		void receiveResponse();
-		void receiveTask();
+		bool receiveTask();
 		std::vector<std::string> executeCommands(std::vector<std::string> commands);
 		void sendResponse();
 	public:
