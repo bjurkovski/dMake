@@ -18,6 +18,8 @@ enum {
 	NUM_FILES_MESSAGE,
 	FILE_SIZE_MESSAGE,
 	FILE_MESSAGE,
+	NUM_COMMANDS_MESSAGE,
+	COMMANDS_MESSAGE,
 	FINISH_MESSAGE
 };
 
@@ -45,7 +47,7 @@ class DistributedMake : public Make {
 		bool canSendTask(Rule* rule);
 		bool sendTask(Rule* rule);
 		void receiveResponse();
-		bool receiveTask();
+		std::vector<std::string> receiveTask();
 		std::vector<std::string> executeCommands(std::vector<std::string> commands);
 		void sendResponse();
 	public:

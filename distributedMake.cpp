@@ -109,7 +109,16 @@ bool DistributedMake::sendTask(Rule* rule) {
 				free(buffer);
 			}
 
-			MPI_Send((void*) rule->getName().c_str(), rule->getName().size(), MPI_CHAR, currentCore, TASK_MESSAGE, MPI_COMM_WORLD);
+			vector<string> commands = rule->getCommands();
+			int numCommands = commands.size();
+			MPI_Send(&numCommands, 1, MPI_INT, currentCore, NUM_COMMANDS_MESSAGE, MPI_COMM_WORLD);
+
+			string serializedCommands = "";
+			for(unsigned int j=0; j<numCommands; j++) {
+				serializedCommands += commands[j] + "\n";
+			}
+			MPI_Send((void*) serializedCommands.c_str(), serializedCommands.size(), MPI_CHAR, currentCore, COMMANDS_MESSAGE, MPI_COMM_WORLD);
+
 			MPI_Irecv(&resultCodes[currentCore], 1, MPI_INT, currentCore, RESPONSE_MESSAGE, MPI_COMM_WORLD, &mpiRequests[currentCore]);
 			coreWorkingOn[currentCore] = rule->getName();
 			lastUsedCore = currentCore;
@@ -135,12 +144,13 @@ void DistributedMake::receiveResponse() {
 	}
 }
 
-bool DistributedMake::receiveTask() {
-	int fileSize, completed=0;
-	const int maxTaskNameSize = 256;
+vector<string> DistributedMake::receiveTask() {
+	char* buffer;
+	int fileSize, numCommands, completed=0;
+	const int maxCommandSize = 256;
 	int sizeReceived;
-	char buf[maxTaskNameSize];
 	MPI_Status status;
+	vector<string> commands;
 
 //	MPI_Recv(&numFiles, 1, MPI_INT, 0, NUM_FILES_MESSAGE, MPI_COMM_WORLD, &status);
 //	cout << "Core " << coreId << " will receive " << numFiles << " files." << endl;
@@ -148,11 +158,10 @@ bool DistributedMake::receiveTask() {
 	if(completed) {
 		for(int i=0; i<numFilesToReceive; i++) {
 			MPI_Recv(&fileSize, 1, MPI_INT, 0, FILE_SIZE_MESSAGE, MPI_COMM_WORLD, &status);
-			char* buffer = (char*) malloc(sizeof(char)*fileSize+1);
+			buffer = (char*) malloc(sizeof(char)*fileSize+1);
 			MPI_Recv(buffer, fileSize, MPI_CHAR, 0, FILE_MESSAGE, MPI_COMM_WORLD, &status);
 			MPI_Get_count(&status, MPI_CHAR, &sizeReceived);
 			buffer[sizeReceived] = '\0';
-
 
 			string filename;
 			char* content = deserializeFile(buffer, filename);
@@ -168,14 +177,17 @@ bool DistributedMake::receiveTask() {
 			free(buffer);
 		}
 
-		MPI_Recv(buf, maxTaskNameSize, MPI_CHAR, 0, TASK_MESSAGE, MPI_COMM_WORLD, &status);
-		MPI_Get_count(&status, MPI_CHAR, &sizeReceived);
-		buf[sizeReceived] = '\0';
-		cout << "Core " << coreId << " received task '" << buf << "'" << endl;
-		return true;
+		MPI_Recv(&numCommands, 1, MPI_INT, 0, NUM_COMMANDS_MESSAGE, MPI_COMM_WORLD, &status);
+
+		buffer = (char*) malloc(sizeof(char)*numCommands(maxCommandSize+1));
+		MPI_Recv(buffer, numCommands*(maxCommandSize+1), MPI_INT, 0, COMMANDS_MESSAGE, MPI_COMM_WORLD, &status);
+		cout << "Core " << coreId << " received commands" << endl << buffer << endl;
+		free(buffer);
+
+		return commands;
 	}
 	else {
-		return false;
+		return commands;
 	}
 }
 
@@ -294,11 +306,11 @@ void DistributedMake::run(Makefile makefile, string startRule) {
 }
 
 void DistributedMake::runSlave() {
-
 	int value = 0;
 	int completed = 0;
 	MPI_Request request;
 	MPI_Status status;
+	vector<string> commands;
 
 	MPI_Irecv(&value, 1, MPI_INT, MPI_ANY_SOURCE, FINISH_MESSAGE, MPI_COMM_WORLD, &request);
 	MPI_Irecv(&numFilesToReceive, 1, MPI_INT, 0, NUM_FILES_MESSAGE, MPI_COMM_WORLD, &mpiRequests[0]);
@@ -316,7 +328,8 @@ void DistributedMake::runSlave() {
 			break;
 		}
 
-		if(receiveTask()) {
+		commands = receiveTask();
+		if(commands.size() > 0) {
 			sendResponse();
 		}
 	}
