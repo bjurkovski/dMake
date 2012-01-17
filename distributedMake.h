@@ -41,7 +41,7 @@ class DistributedMake : public Make {
 		void createInitialSet(std::string startRule);
 		std::vector<Rule*> topologicalSort();
 
-		char* serializeFile(std::string filename, int& size);
+		char* serializeFile(std::string filename, int& size, std::string folder="");
 		char* deserializeFile(char* file, std::string& filename);
 
 		bool canSendTask(Rule* rule);
