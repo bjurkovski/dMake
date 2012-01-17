@@ -49,7 +49,7 @@ class DistributedMake : public Make {
 		void receiveResponse();
 		std::vector<std::string> receiveTask();
 		std::vector<std::string> executeCommands(std::vector<std::string> commands);
-		void sendResponse();
+		void sendResponse(std::vector<std::string> newFiles);
 	public:
 		DistributedMake(int numCores, int coreId);
 		virtual ~DistributedMake() { }

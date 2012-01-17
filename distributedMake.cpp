@@ -115,7 +115,8 @@ bool DistributedMake::sendTask(Rule* rule) {
 
 			string serializedCommands = "";
 			for(int j=0; j<numCommands; j++) {
-				serializedCommands += commands[j] + "\n";
+				if(j>0) serializedCommands += "\n";
+				serializedCommands += commands[j];
 			}
 			if (numCommands != 0)
 			  MPI_Send((void*) serializedCommands.c_str(), serializedCommands.size(), MPI_CHAR, currentCore, COMMANDS_MESSAGE, MPI_COMM_WORLD);
@@ -181,17 +182,20 @@ vector<string> DistributedMake::receiveTask() {
 		MPI_Recv(&numCommands, 1, MPI_INT, 0, NUM_COMMANDS_MESSAGE, MPI_COMM_WORLD, &status);
 		
 		if (numCommands != 0){
-		  buffer = (char*) malloc(sizeof(char)*numCommands*(maxCommandSize+1)+1);
-		  MPI_Recv(buffer, numCommands*(maxCommandSize+1), MPI_INT, 0, COMMANDS_MESSAGE, MPI_COMM_WORLD, &status);
-		  MPI_Get_count(&status, MPI_CHAR, &sizeReceived);
-		  buffer[sizeReceived] = '\0';
+			buffer = (char*) malloc(sizeof(char)*numCommands*(maxCommandSize+1)+1);
+			MPI_Recv(buffer, numCommands*(maxCommandSize+1), MPI_INT, 0, COMMANDS_MESSAGE, MPI_COMM_WORLD, &status);
+			MPI_Get_count(&status, MPI_CHAR, &sizeReceived);
+			buffer[sizeReceived] = '\0';
 		  
-		  cout << "Core " << coreId << " received commands" << endl << buffer << endl;
-		  free(buffer);
+			char* command = strtok(buffer, "\n");
+			while(command) {
+				commands.push_back(command);
+				command = strtok(NULL, "\n");
+			}
+
+			free(buffer);
 		}
 
-		// TODO correct
-		commands.push_back("coucou :)");
 		return commands;
 	}
 	else {
@@ -267,7 +271,7 @@ vector<string> DistributedMake::executeCommands(vector<string> commands) {
 	return newFiles;
 }
 
-void DistributedMake::sendResponse() {
+void DistributedMake::sendResponse(vector<string> newFiles) {
 	int resultCode = 1;
 	MPI_Send(&resultCode, 1, MPI_INT, 0, RESPONSE_MESSAGE, MPI_COMM_WORLD);
 	cout << "Core " << coreId << " is sending result back to master!" << endl;
@@ -332,6 +336,7 @@ void DistributedMake::runSlave() {
 	MPI_Request request;
 	MPI_Status status;
 	vector<string> commands;
+	vector<string> newFiles;
 
 	MPI_Irecv(&value, 1, MPI_INT, MPI_ANY_SOURCE, FINISH_MESSAGE, MPI_COMM_WORLD, &request);
 	MPI_Irecv(&numFilesToReceive, 1, MPI_INT, 0, NUM_FILES_MESSAGE, MPI_COMM_WORLD, &mpiRequests[0]);
@@ -351,7 +356,8 @@ void DistributedMake::runSlave() {
 
 		commands = receiveTask();
 		if(commands.size() > 0) {
-			sendResponse();
+			newFiles = executeCommands(commands);
+			sendResponse(newFiles);
 		}
 	}
 
