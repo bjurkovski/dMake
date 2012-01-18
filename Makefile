@@ -1,6 +1,6 @@
 CC = g++
 MPICC = mpicxx
-CFLAGS = -Wall
+CFLAGS = -Wall -g
 LFLAGS =
 OBJS = makefile.o distributedMake.o
 OUTPUT = dmake

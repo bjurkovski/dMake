@@ -287,7 +287,8 @@ vector<string> DistributedMake::executeCommands(vector<string> commands) {
 		// Execution
 		// TODO : redirect the output flow in the shell where dmake is executed
 		system((lsCommand + "1").c_str());
-		system(("cd "+folder+" &&"+commands[j]).c_str());
+		int ret = system(("cd "+folder+" &&"+commands[j]).c_str());
+		cout << "Executing command '" << commands[j] << "'. Return code: " << ret << endl;
 		system((lsCommand + "2").c_str());
 
 		string tempFile1, tempFile2;
@@ -439,6 +440,8 @@ void DistributedMake::runSlave() {
 		commands = receiveTask();
 		if(commands.size() > 0) {
 			newFiles = executeCommands(commands);
+			for(unsigned int i=0; i<newFiles.size(); i++)
+				cout << "new file : " << newFiles[i] << endl;
 			sendResponse(newFiles);
 		}
 	}
