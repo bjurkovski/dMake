@@ -377,7 +377,7 @@ void DistributedMake::run(Makefile makefile) {
 }
 
 void DistributedMake::run(Makefile makefile, string startRule) {
-	cout << makefile.toString();
+//	cout << makefile.toString();
 	rules = makefile.getRules();
 	if(rules.find(startRule) == rules.end()) {
 		cout << "dmake: *** No rule to make target '" << startRule << "'.  Stop." << endl;

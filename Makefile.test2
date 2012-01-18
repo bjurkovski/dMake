@@ -1,4 +1,4 @@
-cible2 : cible1
+ cible2 : cible1
 	echo "execution de la cible 2"
 
 cible4 : cible3 cible1

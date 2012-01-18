@@ -180,10 +180,9 @@ bool Rule::isFile() {
 }
 
 void Makefile::stripString(string& str) {
-	//str.erase(std::remove(str.begin(), str.end(), ' '), str.end());
-	//str.erase(std::remove(str.begin(), str.end(), '\n'), str.end());
-	//str.erase(std::remove(str.begin(), str.end(), '\t'), str.end());
-	//str.erase(remove_if(str.begin(), str.end(), std::isspace), str.end());
+	str.erase(std::remove(str.begin(), str.end(), ' '), str.end());
+	str.erase(std::remove(str.begin(), str.end(), '\n'), str.end());
+	str.erase(std::remove(str.begin(), str.end(), '\t'), str.end());
 }
 
 void Makefile::addVariable(string varName, string varValue) {
