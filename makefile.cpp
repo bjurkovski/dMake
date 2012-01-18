@@ -362,20 +362,20 @@ string Makefile::toString() {
 
 	for(map<string, Rule*>::iterator i=rules.begin(); i != rules.end(); i++) {
 		ret += "> Rule\n";
-		ret += "Name: " + i->first + "\n";
+		ret += "Name: '" + i->first + "'\n";
 		vector<Rule*> dependencies = i->second->getDependencies();
 		vector<string> commands = i->second->getCommands();
 		ret += "Dependencies: ";
 		for(unsigned int j=0; j<dependencies.size(); j++) {
-			ret += dependencies[j]->getName() + " ";
+			ret += "'" + dependencies[j]->getName() + "' ";
 		}
 		ret += "\n";
 		ret += "Commands:\n";
 		for(unsigned int j=0; j<commands.size(); j++) {
-			ret += commands[j] + "\n";
+			ret += "'" + commands[j] + "'\n";
 		}
 	}
-	ret += "> First rule: " + firstRule->getName() + "\n";
+	ret += "> First rule: '" + firstRule->getName() + "'\n";
 
 	return ret;
 }

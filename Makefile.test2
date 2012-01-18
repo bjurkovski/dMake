@@ -1,14 +1,14 @@
 cible2 : cible1
-       echo "execution de la cible 2"
+	echo "execution de la cible 2"
 
 cible4 : cible3 cible1
-       echo "execution de la cible 4"
+	echo "execution de la cible 4"
 
 cible3 : cible2
-       echo "execution de la cible 3"
+	echo "execution de la cible 3"
 
 cible5 : cible4
-       echo "execution de la cible 5"
+	echo "execution de la cible 5"
 
 cible1 :
-       echo "execution de la cible 1"
+	echo "execution de la cible 1"

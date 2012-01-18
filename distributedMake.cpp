@@ -104,6 +104,7 @@ bool DistributedMake::sendTask(Rule* rule) {
 
 			vector<Rule*> files = rule->getFileDependencies();
 			unsigned int numFiles = files.size();
+			cout << "Will send " << numFiles << " files to core " << currentCore << endl;
 			MPI_Send(&numFiles, 1, MPI_INT, currentCore, NUM_FILES_MESSAGE, MPI_COMM_WORLD);
 			for(unsigned int currentFile=0; currentFile<numFiles; currentFile++) {
 				int messageSize;
@@ -112,6 +113,7 @@ bool DistributedMake::sendTask(Rule* rule) {
 				  cout << "serializeFile returned Null" << endl;
 				  exit(1);
 				}
+				cout << "\tfile " << currentFile << " has size " << messageSize << endl;
 				MPI_Send(&messageSize, 1, MPI_INT, currentCore, FILE_SIZE_MESSAGE, MPI_COMM_WORLD);
 				MPI_Send(buffer, messageSize, MPI_CHAR, currentCore, FILE_MESSAGE, MPI_COMM_WORLD);
 				free(buffer);
@@ -119,6 +121,7 @@ bool DistributedMake::sendTask(Rule* rule) {
 
 			vector<string> commands = rule->getCommands();
 			int numCommands = commands.size();
+			cout << "Will send " << numCommands << " commands to core " << currentCore << endl;
 			MPI_Send(&numCommands, 1, MPI_INT, currentCore, NUM_COMMANDS_MESSAGE, MPI_COMM_WORLD);
 
 			string serializedCommands = "";
@@ -199,6 +202,7 @@ vector<string> DistributedMake::receiveTask() {
 //	cout << "Core " << coreId << " will receive " << numFiles << " files." << endl;
 	MPI_Test(&mpiRequests[0], &completed, &status);
 	if(completed) {
+		cout << "Core " << coreId << " will receive " << numFilesToReceive << " files." << endl;
 		for(int i=0; i<numFilesToReceive; i++) {
 		  cout << "before receive size" << endl;
 			MPI_Recv(&fileSize, 1, MPI_INT, 0, FILE_SIZE_MESSAGE, MPI_COMM_WORLD, &status);
@@ -236,7 +240,7 @@ vector<string> DistributedMake::receiveTask() {
 
   		MPI_Recv(&numCommands, 1, MPI_INT, 0, NUM_COMMANDS_MESSAGE, MPI_COMM_WORLD, &status);
 		
-		if (numCommands != 0){
+		if (numCommands > 0) {
 			buffer = (char*) malloc(sizeof(char)*numCommands*(maxCommandSize+1)+1);
 			if(buffer == NULL) {
 			  cout << "Couldn't allocate buffer to read commands in ReceiveTasks" << endl;
@@ -372,7 +376,7 @@ void DistributedMake::run(Makefile makefile) {
 }
 
 void DistributedMake::run(Makefile makefile, string startRule) {
-	//cout << makefile.toString();
+	cout << makefile.toString();
 	rules = makefile.getRules();
 	if(rules.find(startRule) == rules.end()) {
 		cout << "dmake: *** No rule to make target '" << startRule << "'.  Stop." << endl;
