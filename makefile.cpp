@@ -306,12 +306,12 @@ void Makefile::read(const string filename) {
 					var = strtok(line, "=");
 					val = strtok(NULL, "\n");
 					string strVar = string(var);
-					//stripString(strVar);
+					stripString(strVar);
 					if(val == NULL) {
 						addVariable(strVar, "");
 					} else {
 						string strVal = string(val);
-						//stripString(strVal);
+						stripString(strVal);
 						addVariable(strVar, strVal);
 					}
 				}
@@ -320,7 +320,7 @@ void Makefile::read(const string filename) {
 					name = strtok(line, ":");
 
 					string strName = string(name);
-					//stripString(strName);
+					stripString(strName);
 
 					string ruleName;
 					if(isVariable(strName, rule)) ruleName = getVariableValue(strName, rule);
@@ -345,13 +345,13 @@ void Makefile::read(const string filename) {
 							istringstream varValueStream(varValue);
 							string varPart;
 							while(varValueStream >> varPart) {
-								//stripString(varPart);
+								stripString(varPart);
 								addDependency(rule, varPart);
 							}
 						}
 						else {
 							string strDep = string(dep);
-							//stripString(strDep);
+							stripString(strDep);
 							addDependency(rule, strDep);
 						}
 
