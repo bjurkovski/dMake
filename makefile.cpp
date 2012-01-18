@@ -1,6 +1,6 @@
 #include "makefile.h"
 
-#define MAX_LINE_SIZE 256
+#define MAX_LINE_SIZE 2048
 
 using namespace std;
 
@@ -179,6 +179,13 @@ bool Rule::isFile() {
 	return isAFile;
 }
 
+void Makefile::stripString(string& str) {
+	//str.erase(std::remove(str.begin(), str.end(), ' '), str.end());
+	//str.erase(std::remove(str.begin(), str.end(), '\n'), str.end());
+	//str.erase(std::remove(str.begin(), str.end(), '\t'), str.end());
+	//str.erase(remove_if(str.begin(), str.end(), std::isspace), str.end());
+}
+
 void Makefile::addVariable(string varName, string varValue) {
 	string keyValue[2] = {varName, varValue};
 	for(int i=0; i<2; i++) {
@@ -297,20 +304,27 @@ void Makefile::read(const string filename) {
 				if(strchr(line, '=')) { // It's a variable definition
 					char *var, *val;
 					var = strtok(line, "=");
-					val = strtok(NULL, "=");
+					val = strtok(NULL, "\n");
+					string strVar = string(var);
+					//stripString(strVar);
 					if(val == NULL) {
-						addVariable(var, "");
+						addVariable(strVar, "");
 					} else {
-						addVariable(var, val);
+						string strVal = string(val);
+						//stripString(strVal);
+						addVariable(strVar, strVal);
 					}
 				}
 				else { // It's a rule definition
 					char *name, *dependencies, *dep;
 					name = strtok(line, ":");
 
+					string strName = string(name);
+					//stripString(strName);
+
 					string ruleName;
-					if(isVariable(name, rule)) ruleName = getVariableValue(name, rule);
-					else ruleName = name;
+					if(isVariable(strName, rule)) ruleName = getVariableValue(strName, rule);
+					else ruleName = strName;
 
 					map<string, Rule*>::iterator it = rules.find(ruleName);
 					if(it == rules.end()) {
@@ -331,11 +345,14 @@ void Makefile::read(const string filename) {
 							istringstream varValueStream(varValue);
 							string varPart;
 							while(varValueStream >> varPart) {
+								//stripString(varPart);
 								addDependency(rule, varPart);
 							}
 						}
 						else {
-							addDependency(rule, dep);
+							string strDep = string(dep);
+							//stripString(strDep);
+							addDependency(rule, strDep);
 						}
 
 						dep = strtok(NULL, " ");

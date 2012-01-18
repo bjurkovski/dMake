@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <algorithm>
 #include <iostream>
 #include <sstream>
 #include <sys/stat.h>	
@@ -51,6 +52,7 @@ class Makefile {
 		std::map<std::string, Rule*> rules;
 		std::map<std::string, std::string> variables;
 	private:
+		void stripString(std::string& str);
 		void addVariable(std::string varName, std::string varValue);
 		bool isVariable(std::string depName, Rule* rule);
 		std::string getVariableValue(std::string variable, Rule* rule);
