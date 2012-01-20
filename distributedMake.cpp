@@ -103,12 +103,12 @@ bool DistributedMake::sendTask(Rule* rule) {
     int currentCore = (lastUsedCore + i + 1) % numCores;
     if(currentCore == coreId) continue;
     if(coreWorkingOn[currentCore] == "") {
-      if DEBUG
+      if (DEBUG)
 	cout << "DEBUG -- sendTask : Dispatching rule '" << rule->getName() << "' to core " << currentCore << endl;
 
       vector<Rule*> files = rule->getFileDependencies();
       unsigned int numFiles = files.size();
-      if DEBUG
+      if (DEBUG)
 	cout << "DEBUG -- sendTask : Will send " << numFiles << " files to core " << currentCore << endl;
       MPI_Send(&numFiles, 1, MPI_INT, currentCore, NUM_FILES_MESSAGE, MPI_COMM_WORLD);
       for(unsigned int currentFile=0; currentFile<numFiles; currentFile++) {
@@ -127,7 +127,7 @@ bool DistributedMake::sendTask(Rule* rule) {
 
       vector<string> commands = rule->getCommands();
       int numCommands = commands.size();
-      if DEBUG
+      if (DEBUG)
 	cout << "DEBUG -- sendTask : Will send " << numCommands << " commands to core " << currentCore << endl;
       MPI_Send(&numCommands, 1, MPI_INT, currentCore, NUM_COMMANDS_MESSAGE, MPI_COMM_WORLD);
 
@@ -160,15 +160,15 @@ void DistributedMake::receiveResponse() {
 
     MPI_Test(&mpiRequests[i], &completed, &status);
     if(completed) {
-      if DEBUG {
+      if (DEBUG) {
 	  cout << "DEBUG -- receiveResponse : enter completed"<< endl;
 	  cout << "DEBUG -- receiveResponse : result code = " << resultCodes[i] << endl;
 	}
       for(int j=0; j<resultCodes[i]; j++) {
-	if DEBUG
+	if (DEBUG)
 	  cout << "DEBUG -- receiveResponse : before receive size" << endl;
 	MPI_Recv(&fileSize, 1, MPI_INT, i, FILE_SIZE_MESSAGE, MPI_COMM_WORLD, &status);
-	if DEBUG
+	if (DEBUG)
 	  cout << "DEBUG -- receiveResponse : received size is "<< fileSize << endl;
 	buffer = (char*) malloc(sizeof(char)*fileSize+1);
 	if(buffer == NULL) {
@@ -177,15 +177,15 @@ void DistributedMake::receiveResponse() {
 	}
 		    
 	MPI_Recv(buffer, fileSize, MPI_CHAR, i, FILE_MESSAGE, MPI_COMM_WORLD, &status);
-	if DEBUG
+	if (DEBUG)
 	  cout << "DEBUG -- ReceiveResponse : files received" << endl;
 	MPI_Get_count(&status, MPI_CHAR, &sizeReceived);
 	buffer[sizeReceived] = '\0';
-	if DEBUG
+	if (DEBUG)
 	  cout << "DEBUG -- ReceiveResponse : put 0 at the end of the buffer" << endl;
 	string filename;
 	char* content = deserializeFile(buffer, filename);
-	if DEBUG
+	if (DEBUG)
 	  cout << "DEBUG -- ReceiveResponse : Master received file '" << filename << "'" << endl;
 
 	int filenameSize = filename.size();
@@ -199,7 +199,7 @@ void DistributedMake::receiveResponse() {
       rules[coreWorkingOn[i]]->update();
       ruleIsFinished[coreWorkingOn[i]] = true;
       coreWorkingOn[i] = "";
-      if DEBUG
+      if (DEBUG)
 	cout << "DEBUG -- ReceiveResponse : Master received " << resultCodes[i] << " files from core " << i << endl;
     }
   }
@@ -215,7 +215,7 @@ vector<string> DistributedMake::receiveTask() {
 
   MPI_Test(&mpiRequests[0], &completed, &status);
   if(completed) {
-    if DEBUG
+    if (DEBUG)
       cout << "DEBUG -- receiveTask : Core " << coreId << " will receive " << numFilesToReceive << " files." << endl;
     for(int i=0; i<numFilesToReceive; i++) {
       if (DEBUG)
