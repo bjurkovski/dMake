@@ -103,11 +103,26 @@ bool DistributedMake::sendTask(Rule* rule) {
 			cout << "Dispatching rule '" << rule->getName() << "' to core " << currentCore << endl;
 
 			vector<Rule*> files = rule->getFileDependencies();
+			vector<Rule*> commandFiles = vector<Rule*>();
+			vector<string> commands = rule->getCommands();
+
+			for(unsigned int j=0; j<commands.size(); j++) {
+				char* exec = strtok((char*)commands[j].c_str(), " \t");
+				if(strlen(exec) > 2) {
+					if(exec[0] == '.' && exec[1] == '/') {
+						Rule* commandFile = new Rule(exec);
+						files.push_back(commandFile);
+						commandFiles.push_back(commandFile);
+					}
+				}
+			}
+
 			unsigned int numFiles = files.size();
 			cout << "Will send " << numFiles << " files to core " << currentCore << endl;
 			MPI_Send(&numFiles, 1, MPI_INT, currentCore, NUM_FILES_MESSAGE, MPI_COMM_WORLD);
 			for(unsigned int currentFile=0; currentFile<numFiles; currentFile++) {
 				int messageSize;
+			  	cout << "will send " << files[currentFile]->getName() << endl;
 				char* buffer = serializeFile(files[currentFile]->getName(), messageSize);
 				if(buffer == NULL) {
 				  cout << "serializeFile returned Null" << endl;
@@ -119,7 +134,11 @@ bool DistributedMake::sendTask(Rule* rule) {
 				free(buffer);
 			}
 
-			vector<string> commands = rule->getCommands();
+			for(unsigned int j=0; j<commandFiles.size(); j++) {
+				delete commandFiles[j];
+			}
+			commandFiles.clear();
+
 			int numCommands = commands.size();
 			cout << "Will send " << numCommands << " commands to core " << currentCore << endl;
 			MPI_Send(&numCommands, 1, MPI_INT, currentCore, NUM_COMMANDS_MESSAGE, MPI_COMM_WORLD);
