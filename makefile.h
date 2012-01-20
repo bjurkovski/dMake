@@ -44,6 +44,7 @@ class Rule {
 		void deserialize(std::string serializedRule);
 
 		bool isFile();
+		void update();
 };
 
 class Makefile {

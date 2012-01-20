@@ -340,6 +340,6 @@ frame_112.png : cube_anim.blend
 frame_113.png : cube_anim.blend
 		blender -b cube_anim.blend -o //frame_# -F PNG -x 1 -f 113
 
-cube_anim.blend : 
+cube_anim.blend : cube_anim.zip
 		rm cube_anim.blend ; unzip cube_anim.zip
 

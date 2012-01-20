@@ -183,6 +183,7 @@ void DistributedMake::receiveResponse() {
 				free(buffer);
 			}
 
+			rules[coreWorkingOn[i]]->update();
 			ruleIsFinished[coreWorkingOn[i]] = true;
 			coreWorkingOn[i] = "";
 			cout << "Master received " << resultCodes[i] << " files from core " << i << endl;

@@ -6,17 +6,7 @@ using namespace std;
 
 Rule::Rule(string name) {
 	this->name = name;
-	FILE* file = fopen(name.c_str(), "r");
-	if(file != NULL) {
-		fclose(file);
-		struct stat attrib;
-		stat(name.c_str(), &attrib);
-		timeModified = *gmtime(&(attrib.st_mtime));
-		isAFile = true;
-	}
-	else {
-		isAFile = false;
-	}
+	this->update();
 }
 
 void Rule::addCommand(string command) {
@@ -177,6 +167,32 @@ void Rule::deserialize(std::string serializedRule) {
 bool Rule::isFile() {
 	//return ((getCommands().size()==0) && (getDependencies().size()==0));
 	return isAFile;
+}
+
+void Rule::update() {
+	FILE* file = fopen(name.c_str(), "r");
+	if(file != NULL) {
+		fclose(file);
+		struct stat attrib;
+		stat(name.c_str(), &attrib);
+		timeModified = *gmtime(&(attrib.st_mtime));
+		isAFile = true;
+
+		for(vector<Rule*>::iterator i=dependencies.begin(); i!=dependencies.end(); i++) {
+			Rule* dependency = *i;
+			if(dependency->isFile() && isFile() && (mktime(&(dependency->timeModified)) > mktime(&timeModified))) {
+				isAFile = false;
+				break;
+			}
+			else if(!dependency->isFile()) {
+				isAFile = false;
+				break;
+			}
+		}
+	}
+	else {
+		isAFile = false;
+	}
 }
 
 void Makefile::stripString(string& str) {
