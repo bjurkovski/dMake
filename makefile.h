@@ -22,6 +22,7 @@ class Rule {
 		std::vector<std::string> commands;
 		std::vector<Rule*> usedBy;
 		bool isAFile;
+		bool executableBit;
 		struct tm timeModified;
 	private:
 
@@ -44,6 +45,7 @@ class Rule {
 		void deserialize(std::string serializedRule);
 
 		bool isFile();
+		bool isExecutable();
 		void update();
 };
 

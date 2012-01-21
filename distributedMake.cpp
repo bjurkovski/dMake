@@ -103,22 +103,22 @@ bool DistributedMake::sendTask(Rule* rule) {
 				cout << "DEBUG -- sendTask : Dispatching rule '" << rule->getName() << "' to core " << currentCore << endl;
 
 			vector<Rule*> files = rule->getFileDependencies();
-			//vector<Rule*> commandFiles = vector<Rule*>();
+			vector<Rule*> commandFiles = vector<Rule*>();
 			vector<string> commands = rule->getCommands();
 
-			//for(unsigned int j=0; j<commands.size(); j++) {
-				//istringstream iss(commands[j]);
-				//string exec;
-				//iss >> exec;
+			for(unsigned int j=0; j<commands.size(); j++) {
+				istringstream iss(commands[j]);
+				string exec;
+				iss >> exec;
 				//char* exec = strtok((char*)commands[j].c_str(), " \t");
-				//if(exec.size() > 2) {
-				//	if(exec[0] == '.' && exec[1] == '/') {
-						//Rule* commandFile = new Rule(exec);
-						//files.push_back(commandFile);
-						//commandFiles.push_back(commandFile);
-				//	}
-				//}
-			//}
+				if(exec.size() > 2) {
+					if(exec[0] == '.' && exec[1] == '/') {
+						Rule* commandFile = new Rule(exec);
+						files.push_back(commandFile);
+						commandFiles.push_back(commandFile);
+					}
+				}
+			}
 
 			unsigned int numFiles = files.size();
 			if (DEBUG)
@@ -133,15 +133,22 @@ bool DistributedMake::sendTask(Rule* rule) {
 				  exit(1);
 				}
 
-				MPI_Send(&messageSize, 1, MPI_INT, currentCore, FILE_SIZE_MESSAGE, MPI_COMM_WORLD);
+				int fileInfo[2];
+				fileInfo[0] = messageSize;
+				if(files[currentFile]->isExecutable())
+					fileInfo[1] = EXECUTABLE_FILE;
+				else
+					fileInfo[1] = ORDINARY_FILE;
+
+				MPI_Send(fileInfo, 2, MPI_INT, currentCore, FILE_SIZE_AND_TYPE_MESSAGE, MPI_COMM_WORLD);
 				MPI_Send(buffer, messageSize, MPI_CHAR, currentCore, FILE_MESSAGE, MPI_COMM_WORLD);
 				free(buffer);
 			}
 
-			//for(unsigned int j=0; j<commandFiles.size(); j++) {
-			//	delete commandFiles[j];
-			//}
-			//commandFiles.clear();
+			for(unsigned int j=0; j<commandFiles.size(); j++) {
+				delete commandFiles[j];
+			}
+			commandFiles.clear();
 
 			int numCommands = commands.size();
 			if (DEBUG)
@@ -171,7 +178,7 @@ void DistributedMake::receiveResponse() {
 
 		int completed = 0;
 		MPI_Status status;
-		int fileSize, sizeReceived;
+		int fileInfo[2], fileSize, fileType, sizeReceived;
 		char* buffer;
 
 		MPI_Test(&mpiRequests[i], &completed, &status);
@@ -181,7 +188,9 @@ void DistributedMake::receiveResponse() {
 			}
 
 			for(int j=0; j<resultCodes[i]; j++) {
-				MPI_Recv(&fileSize, 1, MPI_INT, i, FILE_SIZE_MESSAGE, MPI_COMM_WORLD, &status);
+				MPI_Recv(fileInfo, 2, MPI_INT, i, FILE_SIZE_AND_TYPE_MESSAGE, MPI_COMM_WORLD, &status);
+				fileSize = fileInfo[0];
+				fileType = fileInfo[1];
 				if (DEBUG)
 					cout << "DEBUG -- receiveResponse : File size is "<< fileSize << endl;
 				buffer = (char*) malloc(sizeof(char)*fileSize+1);
@@ -203,6 +212,13 @@ void DistributedMake::receiveResponse() {
 				fwrite(content, sizeof(char), fileSize - filenameSize - 1, newFile);
 
 				fclose(newFile);
+
+				if(fileType == EXECUTABLE_FILE) {
+					system(("chmod +x " + filename).c_str());
+					if (DEBUG)
+						cout << "DEBUG -- receiveResponse : Master marking file '" << filename << "' as executable" << endl;
+				}
+
 				free(buffer);
 			}
 
@@ -215,8 +231,8 @@ void DistributedMake::receiveResponse() {
 
 vector<string> DistributedMake::receiveTask() {
   char* buffer;
-  int fileSize, numCommands, completed=0;
-  const int maxCommandSize = 256;
+  int fileInfo[2], fileSize, fileType, numCommands, completed=0;
+  const int maxCommandSize = 2048;
   int sizeReceived;
   MPI_Status status;
   vector<string> commands;
@@ -227,7 +243,9 @@ vector<string> DistributedMake::receiveTask() {
       cout << "DEBUG -- receiveTask : Core " << coreId << " will receive " << numFilesToReceive << " files." << endl;
     for(int i=0; i<numFilesToReceive; i++) {
 
-      MPI_Recv(&fileSize, 1, MPI_INT, 0, FILE_SIZE_MESSAGE, MPI_COMM_WORLD, &status);
+      MPI_Recv(fileInfo, 2, MPI_INT, 0, FILE_SIZE_AND_TYPE_MESSAGE, MPI_COMM_WORLD, &status);
+		fileSize = fileInfo[0];
+		fileType = fileInfo[1];
 
       buffer = (char*) malloc(sizeof(char)*fileSize+1);
       if(buffer == NULL) {
@@ -246,7 +264,8 @@ vector<string> DistributedMake::receiveTask() {
 	exit(1);
       }
 
-      cout << "DEBUG -- ReceiveTask : Core " << coreId << " received dependency '" << filename << "'" << endl;
+		if (DEBUG)
+	      cout << "DEBUG -- ReceiveTask : Core " << coreId << " received dependency '" << filename << "'" << endl;
 
       int filenameSize = filename.size();
       char newFilePath[50];
@@ -255,6 +274,14 @@ vector<string> DistributedMake::receiveTask() {
       fwrite(content, sizeof(char), fileSize - filenameSize - 1, newFile);
 
       fclose(newFile);
+
+		if(fileType == EXECUTABLE_FILE) {
+			string command = "chmod +x ";
+			system((command + newFilePath).c_str());
+			if (DEBUG)
+				cout << "DEBUG -- ReceiveTask : Core " << coreId << " marking '" << filename << "' as executable" << endl;
+		}
+
       free(buffer);
     }
 
@@ -374,7 +401,7 @@ void DistributedMake::sendResponse(vector<string> newFiles) {
 		cout << "DEBUG -- sendResponse : numFiles is " << numFiles << endl;
 	MPI_Send(&numFiles, 1, MPI_INT, 0, NUM_FILES_MESSAGE, MPI_COMM_WORLD);
 	for(unsigned int i=0; i<newFiles.size(); i++) {
-		int messageSize;
+		int fileInfo[2], messageSize;
 		if (DEBUG)
 			cout << "DEBUG -- sendResponse : Serializing " << newFiles[i] << "..." << endl;
 		char* buffer = serializeFile(newFiles[i], messageSize, procFolder);
@@ -382,7 +409,13 @@ void DistributedMake::sendResponse(vector<string> newFiles) {
 			cout << "dmake: *** sendResponse : serializeFile returned Null" << endl;
 			exit(1);
 		}
-		MPI_Send(&messageSize, 1, MPI_INT, 0, FILE_SIZE_MESSAGE, MPI_COMM_WORLD);
+		fileInfo[0] = messageSize;
+		string folder = procFolder;
+		Rule f(folder+newFiles[i]);
+		if(f.isExecutable()) fileInfo[1] = EXECUTABLE_FILE;
+		else fileInfo[1] = ORDINARY_FILE;
+
+		MPI_Send(fileInfo, 2, MPI_INT, 0, FILE_SIZE_AND_TYPE_MESSAGE, MPI_COMM_WORLD);
 		if (DEBUG)
 			cout << "DEBUG -- sendResponse : message size is " << messageSize << endl;
 		MPI_Send(buffer, messageSize, MPI_CHAR, 0, FILE_MESSAGE, MPI_COMM_WORLD);
