@@ -286,7 +286,7 @@ void Makefile::read(const string filename) {
 	rewind(file);
 
 	char* buffer = (char*) malloc(sizeof(char)*size);
-	if(buffer == NULL) { cout << "Couldn't allocate buffer to read " << filename << "..." << endl; exit(1); }
+	if(buffer == NULL) { cout << "dmake: *** read : Couldn't allocate buffer to read " << filename << "..." << endl; exit(1); }
 
 	fread(buffer, sizeof(char), size, file);
 
@@ -297,7 +297,7 @@ void Makefile::read(const string filename) {
 		if(strlen(line) > 1) {
 			if(line[0]=='\t') {
 				if(rule == NULL) {
-					cout << "Error parsing. Command without rule..." << endl;
+					cout << "dmake: *** read : Error parsing. Command without rule..." << endl;
 					cout << "\ton line: '" << line << "'" << endl;
 					exit(1);
 				}
