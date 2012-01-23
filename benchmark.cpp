@@ -22,15 +22,21 @@ int main() {
 
 	FILE* cfg = fopen("benchmark.cfg", "r");
 	if(cfg) {
-		fscanf(cfg, "numTimes %d", &numTimes);
-		fscanf(cfg, "machines %d %d %d", &minMachines, &maxMachines, &stepMachines);
-		fscanf(cfg, "dmakeFolder %s", tmpName);
-		dmakeFolder = string(tmpName);	
-		fscanf(cfg, "baseFolder %s", tmpName);
+		fscanf(cfg, "numTimes %d\n", &numTimes);
+		cout << "numTimes " << numTimes << endl;
+		fscanf(cfg, "machines %d %d\n", &minMachines, &maxMachines);
+		fscanf(cfg, "step %d\n", &stepMachines);
+		cout << "machines " << minMachines << " " << maxMachines << " " << stepMachines << endl;
+		fscanf(cfg, "dmakeFolder %[^\n]\n", tmpName);
+		dmakeFolder = string(tmpName);
+		cout << "dmakeFolder " << dmakeFolder << endl;
+		fscanf(cfg, "baseFolder %[^\n]\n", tmpName);
 		baseFolder = string(tmpName);
-		fscanf(cfg, "numBenchmarks %d", &numBenchmarks);
+		cout << "baseFolder " << baseFolder << endl;
+		fscanf(cfg, "numBenchmarks %d\n", &numBenchmarks);
+		cout << "numBenchmarks " << numBenchmarks << endl;
 		for(int i=0; i<numBenchmarks; i++) {
-			fscanf(cfg, "%s", tmpName);
+			fscanf(cfg, "%s\n", tmpName);
 			benchmarks.push_back(tmpName);
 		}
 		fclose(cfg);
@@ -39,7 +45,9 @@ int main() {
 	string mpirun = "mpirun -machinefile " + dmakeFolder + "machines.txt -np ";
 	string dmake = dmakeFolder + "dmake";	
 
+	FILE* log = fopen("logBenchmark.txt", "a+");
 	time_t begin, end;
+	double tempTime = 0;
 	double tExec = 0;
 	double tMake = 0;
 	double tDMake1core = 0;
@@ -56,10 +64,13 @@ int main() {
 			begin = time(NULL);
 			system(command.c_str());
 			end = time(NULL);
-			tExec += difftime(end, begin);
+			tempTime = difftime(end, begin);
+			tExec += tempTime;
+			fprintf(log, "make %s 1 measure %lf\n", benchmarks[i].c_str(), tempTime);
 		}
 		tExec /= numTimes;
 		tMake = tExec;
+		fprintf(log, "make %s 1 average %lf\n", benchmarks[i].c_str(), tExec);
 //*/
 
 		for(int m=minMachines; m<=maxMachines; m+=stepMachines) {
@@ -74,11 +85,14 @@ int main() {
 				begin = time(NULL);
 				system(command.c_str());
 				end = time(NULL);
-				tExec += difftime(end, begin);
+				tempTime = difftime(end, begin);
+				tExec += tempTime;
+				fprintf(log, "dmake %s %d measure %lf\n", benchmarks[i].c_str(), m, tExec);
 			}
 			tExec /= numTimes;
 			if(m == 2) tDMake1core = tExec;
 			fprintf(output, "%d\t%lf\n", m, tExec);
+			fprintf(log, "dmake %s %d average %lf\n", benchmarks[i].c_str(), m, tExec);
 		}
 
 		fclose(output);
@@ -95,5 +109,6 @@ int main() {
 		system(command.c_str());
 	}
 
+	fclose(log);
 	return 0;
 }
