@@ -3,7 +3,7 @@
 #include <iostream>
 using namespace std;
 
-#define DEBUG 0
+#define DEBUG 1
 
 void DistributedMake::createInitialSet(string startRule) {
   Rule* rule = rules[startRule];
