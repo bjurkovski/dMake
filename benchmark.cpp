@@ -13,7 +13,7 @@ int main() {
 	string baseFolder = "examples/makefiles/";
 	string mpirun = "mpirun -machinefile " + dmakeFolder + "machines.txt -np ";
 	string dmake = dmakeFolder + "dmake";
-	string benchmarks[] = {"premier"};
+	string benchmarks[] = {"matrix"};
 	int numBenchmarks = 1;
 	int numTimes = 1;
 	int maxMachines = 20;
@@ -27,7 +27,7 @@ int main() {
 		FILE* output = fopen("benchmark.dat", "w");
 		tExec = 0;
 		tMake = 0;
-/*
+//*
 		for(int t=0; t<numTimes; t++) {
 			system(CD(baseFolder+benchmarks[i], " make clean").c_str());
 			string command = CD(baseFolder+benchmarks[i], " make");
@@ -41,7 +41,7 @@ int main() {
 		tMake = tExec;
 //*/
 
-		for(int m=20; m<=maxMachines; m+=5) {
+		for(int m=5; m<=maxMachines; m+=5) {
 			tExec = 0;
 			for(int t=0; t<numTimes; t++) {
 				system(CD(baseFolder+benchmarks[i], " make clean").c_str());
