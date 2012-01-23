@@ -442,40 +442,42 @@ void DistributedMake::run(Makefile makefile) {
 }
 
 void DistributedMake::run(Makefile makefile, string startRule) {
-  rules = makefile.getRules();
-  if(rules.find(startRule) == rules.end()) {
-    cout << "dmake: *** run : No rule to make target '" << startRule << "'.  Stop." << endl;
-    exit(1);
-  }
+	sprintf(procFolder, "./");
 
-  unsigned int currentRule = 0;
-  createInitialSet(startRule);
-  vector<Rule*> orderedList = topologicalSort();
-
-  while(1) {
-    if(ruleIsFinished[startRule]) {
-      int sendValue = 1;
-      //			TO DO: Try to use broadcast. Problem: we don't have a tag identifying
-      //			the kind of message being passed.
-      //			MPI_Bcast(&sendValue, 1, MPI_INT, coreId, MPI_COMM_WORLD);
-      for(int i=0; i<numCores; i++) {
-	if(i==coreId) continue;
-	MPI_Send(&sendValue, 1, MPI_INT, i, FINISH_MESSAGE, MPI_COMM_WORLD);
-      }
-      if (DEBUG)
-	cout << "DEBUG -- run : Master is finishing. Sending message to slaves." << endl;
-      break;
-    }
-
-    if(currentRule < orderedList.size()) {
-      if(canSendTask(orderedList[currentRule])) {
-	if(sendTask(orderedList[currentRule])) {
-	  currentRule++;
+	rules = makefile.getRules();
+	if(rules.find(startRule) == rules.end()) {
+		cout << "dmake: *** run : No rule to make target '" << startRule << "'.  Stop." << endl;
+		exit(1);
 	}
-      }
-    }
-    receiveResponse();
-  }
+
+	unsigned int currentRule = 0;
+	createInitialSet(startRule);
+	vector<Rule*> orderedList = topologicalSort();
+
+	while(1) {
+		if(currentRule < orderedList.size()) {
+			if(canSendTask(orderedList[currentRule])) {
+				if(currentRule == orderedList.size()-1) {
+					executeCommands(orderedList[currentRule]->getCommands());
+					int sendValue = 1;
+					//			TO DO: Try to use broadcast. Problem: we don't have a tag identifying
+					//			the kind of message being passed.
+					//			MPI_Bcast(&sendValue, 1, MPI_INT, coreId, MPI_COMM_WORLD);
+					for(int i=0; i<numCores; i++) {
+						if(i==coreId) continue;
+						MPI_Send(&sendValue, 1, MPI_INT, i, FINISH_MESSAGE, MPI_COMM_WORLD);
+					}
+					if (DEBUG)
+						cout << "DEBUG -- run : Master is finishing. Sending message to slaves." << endl;
+					break;
+				}
+				else if(sendTask(orderedList[currentRule])) {
+					currentRule++;
+				}
+			}
+		}
+		receiveResponse();
+	}
 }
 
 void DistributedMake::runSlave() {
