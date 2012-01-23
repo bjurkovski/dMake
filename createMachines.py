@@ -1,4 +1,4 @@
-startMachine = 05
+startMachine = 21
 NUM_MACHINES = 15
 
 machinesFile = file("machines.txt", 'w')

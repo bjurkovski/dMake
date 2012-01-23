@@ -61,5 +61,7 @@ list19.txt:
 list20.txt:
 	./premier `echo 19*200000000/20 |bc` `echo 20*200000000/20-1 |bc` > list20.txt
 
+clean:
+	rm list*
 
 

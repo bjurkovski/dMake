@@ -3,6 +3,8 @@
 #include <iostream>
 using namespace std;
 
+#define DEBUG 0
+
 void DistributedMake::createInitialSet(string startRule) {
   Rule* rule = rules[startRule];
 
@@ -126,7 +128,8 @@ bool DistributedMake::sendTask(Rule* rule) {
 			MPI_Send(&numFiles, 1, MPI_INT, currentCore, NUM_FILES_MESSAGE, MPI_COMM_WORLD);
 			for(unsigned int currentFile=0; currentFile<numFiles; currentFile++) {
 				int messageSize;
-			  	cout << "DEBUG -- sendTask : Will send " << files[currentFile]->getName() << endl;
+				if (DEBUG)
+			  		cout << "DEBUG -- sendTask : Will send " << files[currentFile]->getName() << endl;
 				char* buffer = serializeFile(files[currentFile]->getName(), messageSize);
 				if(buffer == NULL) {
 				  cout << "dmake: *** sendTask : serializeFile returned Null" << endl;
@@ -351,13 +354,15 @@ vector<string> DistributedMake::executeCommands(vector<string> commands) {
 			bool goOn = true;
 			bool hasFile1, hasFile2;	    
 			while(goOn) {
-				cout << "DEBUG -- executeCommands : Core " << coreId << " is comparing '" << tempFile1.substr(17, tempFile1.size() - 17) << "' and '" << tempFile2.substr(17, tempFile2.size() - 17) << "' : ";
+				if (DEBUG)
+					cout << "DEBUG -- executeCommands : Core " << coreId << " is comparing '" << tempFile1.substr(17, tempFile1.size() - 17) << "' and '" << tempFile2.substr(17, tempFile2.size() - 17) << "' : ";
 				// file not modified
 				if (tempFile1 == tempFile2) { 
 					hasFile1 = getline(tempFile1Stream, tempFile1);
 					hasFile2 = getline(tempFile2Stream, tempFile2);
 					goOn =  hasFile1 && hasFile2;
-					cout << "they're equal." << endl;
+					if (DEBUG)
+						cout << "they're equal." << endl;
 				}
 				// file modified
 				else if (tempFile1.substr(17, tempFile1.size() - 17) 
@@ -366,26 +371,30 @@ vector<string> DistributedMake::executeCommands(vector<string> commands) {
 					hasFile1 = getline(tempFile1Stream, tempFile1);
 					hasFile2 = getline(tempFile2Stream, tempFile2);
 					goOn =  hasFile1 && hasFile2;
-					cout << "file changed." << endl;
+					if (DEBUG)
+						cout << "file changed." << endl;
 				}
 				// removed file
 				else if (tempFile1.substr(17, tempFile1.size() - 17) 
 						< tempFile2.substr(17, tempFile2.size() - 17)){ 
 					hasFile1 = getline(tempFile1Stream, tempFile1);
 					goOn =  hasFile1;
-					cout << "first file was removed." << endl;
+					if (DEBUG)
+						cout << "first file was removed." << endl;
 				}
 				// new file
 				else{
 					newFiles.push_back(tempFile2.substr(17, tempFile2.size() - 17));
 					hasFile2 = getline(tempFile2Stream, tempFile2);
 					goOn =  hasFile2;
-					cout << "second file is new." << endl;
+					if (DEBUG)
+						cout << "second file is new." << endl;
 				}
 			}
 			// Remaining new files
 			while (hasFile2) {
-				cout << "DEBUG -- executeCommands : Core " << coreId << " generated file '" << tempFile2.substr(17, tempFile2.size() - 17) << "'" << endl;
+				if (DEBUG)
+					cout << "DEBUG -- executeCommands : Core " << coreId << " generated file '" << tempFile2.substr(17, tempFile2.size() - 17) << "'" << endl;
 				newFiles.push_back(tempFile2.substr(17, tempFile2.size() - 17));
 				hasFile2 = getline(tempFile2Stream, tempFile2);
 			}
