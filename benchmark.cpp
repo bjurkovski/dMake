@@ -3,20 +3,41 @@
 #include <ctime>
 #include <string>
 #include <iostream>
+#include <vector>
 
 using namespace std;
 
 #define CD(folder, command) ("cd " + folder + " && " + command)
 
 int main() {
-	string dmakeFolder = "../../../";
-	string baseFolder = "examples/makefiles/";
-	string mpirun = "mpirun -machinefile " + dmakeFolder + "machines.txt -np ";
-	string dmake = dmakeFolder + "dmake";
-	string benchmarks[] = {"matrix"};
 	int numBenchmarks = 1;
 	int numTimes = 1;
+	int minMachines = 5;
 	int maxMachines = 20;
+	int stepMachines = 1;
+	vector<string> benchmarks;
+	char tmpName[256];
+	string dmakeFolder = "../../../";
+	string baseFolder = "examples/makefiles/";
+
+	FILE* cfg = fopen("benchmark.cfg", "r");
+	if(cfg) {
+		fscanf(cfg, "numTimes %d", &numTimes);
+		fscanf(cfg, "machines %d %d %d", &minMachines, &maxMachines, &stepMachines);
+		fscanf(cfg, "dmakeFolder %s", tmpName);
+		dmakeFolder = string(tmpName);	
+		fscanf(cfg, "baseFolder %s", tmpName);
+		baseFolder = string(tmpName);
+		fscanf(cfg, "numBenchmarks %d", &numBenchmarks);
+		for(int i=0; i<numBenchmarks; i++) {
+			fscanf(cfg, "%s", tmpName);
+			benchmarks.push_back(tmpName);
+		}
+		fclose(cfg);
+	}
+
+	string mpirun = "mpirun -machinefile " + dmakeFolder + "machines.txt -np ";
+	string dmake = dmakeFolder + "dmake";	
 
 	time_t begin, end;
 	double tExec = 0;
@@ -41,7 +62,7 @@ int main() {
 		tMake = tExec;
 //*/
 
-		for(int m=5; m<=maxMachines; m+=5) {
+		for(int m=minMachines; m<=maxMachines; m+=stepMachines) {
 			tExec = 0;
 			for(int t=0; t<numTimes; t++) {
 				system(CD(baseFolder+benchmarks[i], " make clean").c_str());
