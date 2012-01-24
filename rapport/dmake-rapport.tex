@@ -234,6 +234,7 @@ sur lequel on souhaite effectuer le déploiement
 numTimes NUM_TIMES
 machines FIRST_MACHINE LAST_MACHINE
 step STEP
+make MAKE_TYPE
 dmakeFolder PATH_TO_DMAKE
 baseFolder BASE_FOLDER
 numBenchmarks NUM_BENCHMARKS
@@ -241,6 +242,13 @@ BENCHMARK1
 BENCHMARK2
 ...
 \end{verbatim}
+
+\texttt{MAKE\_TYPE} peut avoit trois valeurs :
+\begin{itemize}
+\item  0 : On n'exécute que le dmake.
+\item  1 : On n'exécute que le make.
+\item  2 : On exécute make et dmake.
+\end{itemize}
 
 \paragraph{Fonctionnement}
 
