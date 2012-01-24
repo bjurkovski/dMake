@@ -139,33 +139,35 @@ effectué exclusivement avec les primitives de la bibliothèque MPI.
 
 L'exécutable \emph{dmake} crée un graphe de dépendances orienté
 acyclique pour représenter les dépendances entre les cibles du
-makefile donné en entrée. Ce graphe est obtenu grâce à un tri
-topologique effectué après le parsing du makefile.
+makefile donné en entrée. Nous considérons que le makefile est bien
+formée et n'a pas des dépendances cycliques.
+
+\paragraph{Ordonnance des tâches}
+
+Aprés l'obtention du graphe, il faut découvrir l'ordre dans lequel
+les tâches seront exécutés. Pour cela, on fait un tri
+topologique en utilisant les informations du graphe. Pour envoyer les tâches, 
+puis, nous avons seulement besoin de suivre cet ordre et de vérifier si toutes 
+les dépendances de ce règle ont été exécutés.
 
 \paragraph{Équilibrage de charge}
 
-La répartion des tâches est effectuée de manière centralisée à l'aide
-d'un algorithme d'ordonnancement par liste. Ce dernier s'appuie sur le
-graphe de dépendances obtenu précédemment.
+Le processus maître conserve la trace de l'état de chacun des esclaves (il stocke le nom de la règle actuelle sur lesquels ils travaillent ou une valeur vide si ils sont libres). Chaque fois qu'un esclave indique à le maître qu'il a terminé une tâche, le maître vérifie si la cible suivante de la liste peut être expédié. Si toutes ses dépendances ont été achevées, le maître envoie la tâche au processus qui l'a demandé.
 
 \subsection{Optimisations}
 
-Deux optimisations principales ont été apportées à l'algorithme
-d'ordonnancement pour améliorer les performances de \emph{dmake}.
+L'optimisation principale qui a été apportée  pour améliorer les performances de \emph{dmake}
+c'est de forcer le noeud central à exécuter la dernière cible.
 
 Tout d'abord, la quantité de communications a été considérablement
-réduite en forçant l'exécution de la dernière cible du makefile sur le
-noeud central. En effet, il a été constaté que de manière générale, la
+réduite. En effet, il a été constaté que de manière générale, la
 dernière cible (au sens du graphe de dépendances) utilise l'ensemble
 des fichiers crées par les cibles précédentes.
 
-Toujours pour réduire les communications, le choix d'un noeud pour
-exécuter une nouvelle tâche prend en compte les fichiers envoyés
-précédemment à ce nœud. Ainsi un nœud possédant déjà une partie des
-fichier nécessaires à la nouvelle cible sera favorisé, et les fichiers
-ne seront pas envoyés en double.
-
 \subsection{Architecture}
+
+Pour le développement de l'application, nous avons découplé de la solution en
+trois classes principales: Makefile, DistributedMake et Rule.
 
 \begin{figure}[H]
   \centering
@@ -174,9 +176,37 @@ ne seront pas envoyés en double.
   \label{fig:architecture}
 \end{figure}
 
+\subsubsection{Rule}
+
+Cette classe contient des informations telles que son nom, une liste des dépendances (de la même classe) et sa liste de commandes à exécuter. Il contient aussi des méthodes pour vérifier si la règle est un fichier (s'il y a un fichier avec le même nom et aucune de ses dépendances du type fichier on été modifiés après lui) et, si elle est, pour vérifier l'heure de sa dernière modification ou s'il a le bit exécutable.
+
+\subsubsection{Makefile}
+
+Cette classe est chargé de la lecture et le parsing d'un fichier Makefile et de la stockage de ses cibles et de son graphe des dépendances.
+
+\subsubsection{DistributedMake}
+
+C'est la classe principale du programme. Il peut être à la fois un maître ou un esclave, selon la façon dont il est appelé dans le programme. Indépendamment du rôle qu'elle joue, elle doit recevoir un paramètre indiquant l'ID de son processus et le nombre total de processus en cours. Ces informations peuvent être récupérées à partir d'un appel MPI.
+
+\paragraph{Maître}
+
+Lorsque initialisé, il crée un tableau de l'état de tous les processus esclaves et entre dans une boucle. Pour chaque processus inactif, il envoie une règle avec ses commandements et les dépendances et marque le nom de la règle dans son entrée dans le tableau. Quand un processus esclave envoie une réponse, il le marque comme étant capable de recevoir de nouvelles tâches.
+
+\paragraph{Esclaves}
+
+Ces processus sont exécutés dans une boucle en attendant pour des tâches. Quand ils le reçoivent, ils l'exécutent et envoient les résultats (fichiers générés) au maître.
+
 \subsection{Installation}
 
-Pour compiler \emph{dmake}, il faut se placer à la racine du
+Pour compiler \emph{dmake}, il faut avoir une implémentation de \emph{MPI}.
+Dans notres machines, on a utilisé le \emph{OpenMPI}. Pour l'installer, il
+suffit d'exécuter la commande suivante :
+\begin{verbatim}
+> sudo apt-get install openmpi-dev
+> sudo apt-get install openmpi-bin
+\end{verbatim}
+
+Ensuite, il faut se placer à la racine du
 répertoire \texttt{dmake/} puis exécuter la commande :
 \begin{verbatim}
 > make
@@ -217,22 +247,29 @@ benchmark programmé en C++.
 Le benchmark utilise un fichier de configuration
 \texttt{benchmark.cfg} dans lequel on précise : 
 \begin{itemize}
-\item  le numéro de la première machine \texttt{FIRST\_MACHINE}
-et de la dernière machine \texttt{LAST\_MACHINE} de l'ensemble des machines 
-sur lequel on souhaite effectuer le déploiement
 \item le nombre de fois
 \texttt{NUM\_TIMES} qu'est répétée chaque exécution
-\item Le pas \texttt{STEP} concernant le nombre de machines utilisées
+\item  le nombre minimum \texttt{MIN\_MACHINES}
+et le nombre maximum \texttt{MAXIMUM\_MACHINE} de de machines 
+sur lesquel on souhaite exécuter les benchmarks
+\item le pas \texttt{STEP} concernant le nombre de machines utilisées
   pour l'exécution
+\item le type de test \texttt{MAKE\_TYPE} à exécuter. Peut avoit trois valeurs :
+	\begin{itemize}
+	\item  0 : On n'exécute que le dmake.
+	\item  1 : On n'exécute que le make.
+	\item  2 : On exécute make et dmake.
+	\end{itemize}
 \item la localisation \texttt{PATH\_TO\_DMAKE} de \emph{dmake}
-\item le répertoire d'exécution \texttt{BASE\_FOLDER}
-\item le nombre de fichier tests à exécuter \texttt{NUM\_BENCHMARKS}
-\item la liste des fichiers tests \texttt{BENCHMARK1}, \texttt{BENCHMARK2}\dots
+par rapport à des tests qui seront exécutés
+\item le répertoire \texttt{BASE\_FOLDER} oú se trouvent les tests
+\item le nombre de tests à exécuter \texttt{NUM\_BENCHMARKS}
+\item la liste des répertoires des tests \texttt{BENCHMARK1}, \texttt{BENCHMARK2}\dots
 \end{itemize}
 
 \begin{verbatim}
 numTimes NUM_TIMES
-machines FIRST_MACHINE LAST_MACHINE
+machines MIN_MACHINES MAX_MACHINES
 step STEP
 make MAKE_TYPE
 dmakeFolder PATH_TO_DMAKE
@@ -243,18 +280,11 @@ BENCHMARK2
 ...
 \end{verbatim}
 
-\texttt{MAKE\_TYPE} peut avoit trois valeurs :
-\begin{itemize}
-\item  0 : On n'exécute que le dmake.
-\item  1 : On n'exécute que le make.
-\item  2 : On exécute make et dmake.
-\end{itemize}
-
 \paragraph{Fonctionnement}
 
 Le programme \emph{benchmark} fonctionne de la manière suivante : pour
 chaque fichier test proposé, il exécute successivement \emph{dmake} sur un nombre de
-machines allant de \texttt{FIRST\_MACHINE} à \texttt{LAST\_MACHINE}
+machines allant de \texttt{MIN\_MACHINES} à \texttt{MAX\_MACHINES}
 qui est incrémenté de \texttt{STEP} machines à chaque tour. Pour un
 fichier de test et un nombre de machines donnés, l'exécution est
 répétée \texttt{NUM\_TIMES} fois afin d'obtenir un temps d'exécution moyen
@@ -280,6 +310,7 @@ suivantes :
   précédé d'un "./".
 \item les fichiers nécessaires à l'exécution d'une cible ont été
   ajoutés dans les dépendances de celle-ci.
+\item une cible "clean" a été ajouté pour faire le nettoyage entre deux exécutions.
 \end{itemize}
 
 \subsection{Résultats et analyse}
