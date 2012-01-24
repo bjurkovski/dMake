@@ -15,6 +15,7 @@ int main() {
 	int minMachines = 5;
 	int maxMachines = 20;
 	int stepMachines = 1;
+	int make = 2;
 	vector<string> benchmarks;
 	char tmpName[256];
 	string dmakeFolder = "../../../";
@@ -27,6 +28,8 @@ int main() {
 		fscanf(cfg, "machines %d %d\n", &minMachines, &maxMachines);
 		fscanf(cfg, "step %d\n", &stepMachines);
 		cout << "machines " << minMachines << " " << maxMachines << " " << stepMachines << endl;
+		fscanf(cfg, "make %d\n", &make);
+		cout << "make " << make << endl;
 		fscanf(cfg, "dmakeFolder %[^\n]\n", tmpName);
 		dmakeFolder = string(tmpName);
 		cout << "dmakeFolder " << dmakeFolder << endl;
@@ -57,42 +60,46 @@ int main() {
 		tExec = 0;
 		tMake = 0;
 //*
-		for(int t=0; t<numTimes; t++) {
-			system(CD(baseFolder+benchmarks[i], " make clean").c_str());
-			string command = CD(baseFolder+benchmarks[i], " make");
-			cout << "Executing '" << command << "'" << endl;
-			begin = time(NULL);
-			system(command.c_str());
-			end = time(NULL);
-			tempTime = difftime(end, begin);
-			tExec += tempTime;
-			fprintf(log, "make %s 1 measure %lf\n", benchmarks[i].c_str(), tempTime);
-		}
-		tExec /= numTimes;
-		tMake = tExec;
-		fprintf(log, "make %s 1 average %lf\n", benchmarks[i].c_str(), tExec);
-//*/
-
-		for(int m=minMachines; m<=maxMachines; m+=stepMachines) {
-			tExec = 0;
+		if(make==1 || make==2) {
 			for(int t=0; t<numTimes; t++) {
 				system(CD(baseFolder+benchmarks[i], " make clean").c_str());
-				char strNumMachines[10];
-				sprintf(strNumMachines, "%d", m);
-				string command = CD(baseFolder+benchmarks[i], mpirun) + strNumMachines;
-				command += " " + dmake;
+				string command = CD(baseFolder+benchmarks[i], " make");
 				cout << "Executing '" << command << "'" << endl;
 				begin = time(NULL);
 				system(command.c_str());
 				end = time(NULL);
 				tempTime = difftime(end, begin);
 				tExec += tempTime;
-				fprintf(log, "dmake %s %d measure %lf\n", benchmarks[i].c_str(), m, tExec);
+				fprintf(log, "make %s 1 measure %lf\n", benchmarks[i].c_str(), tempTime);
 			}
 			tExec /= numTimes;
-			if(m == 2) tDMake1core = tExec;
-			fprintf(output, "%d\t%lf\n", m, tExec);
-			fprintf(log, "dmake %s %d average %lf\n", benchmarks[i].c_str(), m, tExec);
+			tMake = tExec;
+			fprintf(log, "make %s 1 average %lf\n", benchmarks[i].c_str(), tExec);
+		}
+//*/
+
+		if(make==0 || make==2) {
+			for(int m=minMachines; m<=maxMachines; m+=stepMachines) {
+				tExec = 0;
+				for(int t=0; t<numTimes; t++) {
+					system(CD(baseFolder+benchmarks[i], " make clean").c_str());
+					char strNumMachines[10];
+					sprintf(strNumMachines, "%d", m);
+					string command = CD(baseFolder+benchmarks[i], mpirun) + strNumMachines;
+					command += " " + dmake;
+					cout << "Executing '" << command << "'" << endl;
+					begin = time(NULL);
+					system(command.c_str());
+					end = time(NULL);
+					tempTime = difftime(end, begin);
+					tExec += tempTime;
+					fprintf(log, "dmake %s %d measure %lf\n", benchmarks[i].c_str(), m, tExec);
+				}
+				tExec /= numTimes;
+				if(m == 2) tDMake1core = tExec;
+				fprintf(output, "%d\t%lf\n", m, tExec);
+				fprintf(log, "dmake %s %d average %lf\n", benchmarks[i].c_str(), m, tExec);
+			}
 		}
 
 		fclose(output);
