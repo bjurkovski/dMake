@@ -267,7 +267,8 @@ d'exécution de \emph{GNU make} pour le fichier test considéré.
 
 \subsection{Conditions expérimentales}
 
-Les test ont été effectués en salle D200. La salle était peu occupée
+Les test ont été effectués en salle D200. Les machines de cette ont un
+seul cœur chacune. La salle était peu occupée
 (environ 6 à 10 personnes). Cependant, les tests n'ayant pas tous été
 effectués le même jour, les conditions expérimentales ont pu
 varier. La charge du réseau notamment a pu être différente selon les
@@ -282,6 +283,52 @@ suivantes :
 \end{itemize}
 
 \subsection{Résultats et analyse}
+
+Dans les graphiques suivants, le nombre de machines sur lesquelles est
+lancée l'exécution est indiqué en abscisse, tandis que le temps
+d'exécution en secondes ou l'accélération comparativement à une
+exécution de \emph{GNU make} est indiqué en ordonnées.
+
+\subsubsection{Blender 2.49}
+
+Le benchmark a été réalisé avec un pas de 5 machines, les exécutions
+se faisant successivement sur 5, 10, 15 et 20 machines. Chaque
+exécution a été répétée 3 fois pour obtenir une moyenne
+représentative.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[scale=0.5]{benchmark_blender_2_49_01.png}
+  \caption{Blender 2.49}
+  \label{fig:blender249}
+\end{figure}
+
+On voit ici que l'expérimentation est conforme à nos attentes, car
+l'accélération de \emph{dmake} est proche de l'accélération
+théorique. Le décalage par rapport à l'accélération théorique peut
+être imputée à la partie du code qui est non parallèle. De plus,
+l'accélération se stabilise au delà de 20 machine, ce qui s'explique
+par le fait que le makefile ne contient que 20 cibles. Les machines
+supplémentaires sont donc inutiles. 
+
+\subsubsection{Premier}
+
+Le benchmark a été réalisé avec un pas de 5 machines, les exécutions
+se faisant successivement sur 5, 10, 15 et 20 machines. Chaque
+exécution a été répétée 3 fois pour obtenir une moyenne
+représentative.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[scale=0.5]{benchmark_premier_01.png}
+  \caption{Premier}
+  \label{fig:premier}
+\end{figure}
+
+De même que précédemment, l'expérimentation est conforme à nos attentes, car
+l'accélération de \emph{dmake} est proche de l'accélération
+théorique. Ici aussi le décalage par rapport à l'accélération théorique peut
+être imputée à la partie du code qui est non parallèle. 
 
 \section*{Conclusion}
 On constate que \emph{dmake} est efficace pour des makefiles dont les
