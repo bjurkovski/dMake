@@ -167,7 +167,12 @@ ne seront pas envoyés en double.
 
 \subsection{Architecture}
 
-
+\begin{figure}[H]
+  \centering
+  \includegraphics[scale=0.4]{schema.png}
+  \caption{Architecture}
+  \label{fig:architecture}
+\end{figure}
 
 \subsection{Installation}
 
@@ -258,7 +263,15 @@ Les test ont été effectués en salle D200. La salle était peu occupée
 (environ 6 à 10 personnes). Cependant, les tests n'ayant pas tous été
 effectués le même jour, les conditions expérimentales ont pu
 varier. La charge du réseau notamment a pu être différente selon les
-fichiers tests.
+fichiers tests. Les makefiles utilisés pour les tests sont ceux
+fournis par le professeur. Ils ont cependant subi les modifications
+suivantes : 
+\begin{itemize}
+\item l'appel à des exécutables présents dans le répertoire courant est
+  précédé d'un "./".
+\item les fichiers nécessaires à l'exécution d'une cible ont été
+  ajoutés dans les dépendances de celle-ci.
+\end{itemize}
 
 \subsection{Résultats et analyse}
 
