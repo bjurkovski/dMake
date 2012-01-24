@@ -169,6 +169,10 @@ bool Rule::isFile() {
 	return isAFile;
 }
 
+bool Rule::isExecutable() {
+	return (isFile() && executableBit);
+}
+
 void Rule::update() {
 	FILE* file = fopen(name.c_str(), "r");
 	if(file != NULL) {
@@ -177,6 +181,8 @@ void Rule::update() {
 		stat(name.c_str(), &attrib);
 		timeModified = *gmtime(&(attrib.st_mtime));
 		isAFile = true;
+
+		executableBit = (attrib.st_mode & S_IEXEC);
 
 		for(vector<Rule*>::iterator i=dependencies.begin(); i!=dependencies.end(); i++) {
 			Rule* dependency = *i;
