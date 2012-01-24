@@ -396,21 +396,19 @@ représentative.
 \subsubsection{Blender 2.49}
 
 
-\begin{figure}[H]
+\begin{figure}[h]
   \centering
-  \includegraphics[scale=0.5]{graph_blender_2.49.png}
+  \includegraphics[scale=0.5]{graph_blender_2_49.png}
   \caption{Blender 2.49}
   \label{fig:blender249}
 \end{figure}
 
-On voit ici que l'expérimentation est conforme à nos attentes, car
-l'accélération de \emph{dmake} est relativement proche de l'accélération
-théorique (cf. figure \ref{fig:blender249acc}). Le décalage par rapport à l'accélération théorique peut
-être imputé à la partie du code qui est non parallèle. 
+On voit ici que l'expérimentation est conforme à nos attentes, car \emph{dmake} est plus rapide que \emph{GNU make} à  partir de cinq machines (cf. figure \ref{fig:blender249}). Le décalage par rapport à l'accélération idéale (cf. figure \ref{fig:blender249acc}) peut
+être imputé à la partie du code qui est non parallèle ainsi qu'au communications sur le réseau. 
 
-\begin{figure}[H]
+\begin{figure}[h]
   \centering
-  \includegraphics[scale=0.5]{acceleration_blender_2.49.png}
+  \includegraphics[scale=0.5]{acceleration_blender_2_49.png}
   \caption{Blender 2.49 : Accélération}
   \label{fig:blender249acc}
 \end{figure}
@@ -419,19 +417,19 @@ théorique (cf. figure \ref{fig:blender249acc}). Le décalage par rapport à l'a
 \subsubsection{Premier}
 
 
-\begin{figure}[H]
+\begin{figure}[h]
   \centering
   \includegraphics[scale=0.5]{graph_premier.png}
   \caption{Premier}
   \label{fig:premier}
 \end{figure}
 
-De même que précédemment, l'expérimentation est conforme à nos attentes, car
-l'accélération de \emph{dmake} est relativement proche de l'accélération
-théorique (cf. figure \ref{fig:premierAcc}). Ici aussi le décalage par rapport à l'accélération théorique peut
-être imputé à la partie du code qui est non parallèle. 
+De même que précédemment, l'expérimentation est conforme à nos attentes, 
+car \emph{dmake} est plus rapide que \emph{GNU make} à  partir de cinq machines (cf. figure \ref{fig:premier}). Le décalage par rapport à l'accélération idéale (cf. figure \ref{fig:premierAcc}) peut
+être imputé à la partie du code qui est non parallèle ainsi qu'au communications sur le réseau. 
+On constate que l'accélération est meilleure pour \emph{premier} que pour \emph{blender}. Cela peut s'expliquer par le fait que le temps d'exécution des tâches de \emph{premier} est proportionnellement plus grand que celui de  \emph{blender} par rapport au temps de communication.
 
-\begin{figure}[H]
+\begin{figure}[h]
   \centering
   \includegraphics[scale=0.5]{acceleration_premier.png}
   \caption{Premier : Accélération}
@@ -440,7 +438,7 @@ théorique (cf. figure \ref{fig:premierAcc}). Ici aussi le décalage par rapport
 
 \subsubsection{Matrix}
 
-\begin{figure}[H]
+\begin{figure}[h]
   \centering
   \includegraphics[scale=0.5]{graph_matrix.png}
   \caption{Matrix}
@@ -450,16 +448,16 @@ théorique (cf. figure \ref{fig:premierAcc}). Ici aussi le décalage par rapport
 On voit ici que l'expérimentation est contraire à nos
 attentes. \emph{Dmake} est systématiquement plus lent que \emph{make},
 même lorsque l'exécution est lancée sur un grand nombre de
-machines. Cela s'explique par le fait que ce test génère un très grand
+machines (cf. figure \ref{fig:matrix}). Cela s'explique par le fait que ce test génère un très grand
 nombre de fichiers de petite taille. Le temps de transfert de ces
-fichiers entre les noeuds devient alors non négligeable par rapport au
+fichiers entre les noeuds devient alors important par rapport au
 temps d'exécution des tâches.
 
-\begin{figure}[H]
+\begin{figure}[h]
   \centering
   \includegraphics[scale=0.5]{acceleration_matrix.png}
-  \caption{Premier}
-  \label{fig:premier}
+  \caption{Matrix : Accélération}
+  \label{fig:matrixAcc}
 \end{figure}
 
 \section*{Conclusion}
