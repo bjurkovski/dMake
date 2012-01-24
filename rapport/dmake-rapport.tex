@@ -196,6 +196,25 @@ Lorsque initialisé, il crée un tableau de l'état de tous les processus esclav
 
 Ces processus sont exécutés dans une boucle en attendant pour des tâches. Quand ils le reçoivent, ils l'exécutent et envoient les résultats (fichiers générés) au maître.
 
+\subsection{Protocole de communication}
+
+\paragraph{Envoi des tâches}
+Le processus d'envoi d'une tâche est composée par l'envoi quelques messages du maître vers l'esclave correspondante. Ils sont:
+\begin{itemize}
+\item \texttt{NB\_FICHIERS} : un entier avec le nombre de fichiers que seront envoyés. Cette valeur inclut les dépendances et les fichiers exécutables contenus dans les commandes de la cible.
+\item \texttt{FILE\_INFO} : pour chaque fichier, deux entiers en représentant la taille du fichier (en octets) et le type (exécutable ou non). Si le fichier c'est exécutable, le processus esclave doit faire un \emph{chmod +x} lorsqu'il le reçoit.
+\item \texttt{FICHIER} : une chaîne de caractères contenant le nom du fichier dans la première ligne et le contenu dans les lignes suivantes.
+\item \texttt{NB\_COMMANDES} : un entier avec le nombre de commandes que seront envoyés.
+\item \texttt{COMMANDES} : ce message contient une chaîne de caractères contenant toutes les commandes separées par un caractère de nouvelle ligne ("$\backslash$n"). Nous considérons que la taille maximale de chaque commandes est de 2048 octets.
+\end{itemize}
+
+Soit \texttt{$N$} le nombre de fichiers à envoyer, \texttt{$T_f$} la taille du fichier le plus gros, \texttt{$C$} le nombre de commandes et \texttt{$T_c$} la taille du commande le plus gros, le nombre total de messages à envoyer à un esclave est \texttt{$O(2 + 2 \cdot N + C)$} = \texttt{$O(N + C)$}. Soit 4 octets la taille d'un entier, le nombre total d'octets envoyés a chaque tâche c'est \texttt{$O(8 + N \cdot (T_f+8) + C \cdot T_c)$} = \texttt{$O(N \cdot T_f + C \cdot T_c)$}.
+
+\paragraph{Envoi des réponses}
+Le processus d'envoi d'une réponse c'est plus simple que pour l'envoi d'une tâche. L'esclave n'envoie que des fichier générés par lui après l'exécution des commandes de la cible. Les messages sont, donc, \texttt{NB\_FICHIERS} et pour chaque fichier \texttt{FILE\_INFO} et \texttt{FICHIER}. La description de chaque message est la même fait pour l'envoi des tâches.
+
+L'analyse est similaire à l'envoi des tâches : soit \texttt{$N$} le nombre de fichiers à envoyer et \texttt{$T_f$} la taille du fichier le plus gros, le nombre total de messages envoyés c'est \texttt{$O(1 + 2 \cdot N)$} = \texttt{$O(N)$}. Le nombre total d'octéts c'est \texttt{$O(4 + N \cdot (T_f+8))$} = \texttt{$O(N \cdot T_f + C \cdot T_c)$}.
+
 \subsection{Installation}
 
 Pour compiler \emph{dmake}, il faut avoir une implémentation de \emph{MPI}.
@@ -297,8 +316,7 @@ d'exécution de \emph{GNU make} pour le fichier test considéré.
 
 \subsection{Conditions expérimentales}
 
-Les test ont été effectués en salle D200. Les machines de cette ont un
-seul cœur chacune. La salle était peu occupée
+Les test ont été effectués en salle D200. La salle était peu occupée
 (environ 6 à 10 personnes). Cependant, les tests n'ayant pas tous été
 effectués le même jour, les conditions expérimentales ont pu
 varier. La charge du réseau notamment a pu être différente selon les
@@ -360,6 +378,16 @@ De même que précédemment, l'expérimentation est conforme à nos attentes, ca
 l'accélération de \emph{dmake} est proche de l'accélération
 théorique. Ici aussi le décalage par rapport à l'accélération théorique peut
 être imputée à la partie du code qui est non parallèle. 
+
+\subsubsection{L'environnement d'exécution}
+\begin{description}
+\item[Processeur :] TO CHECK
+\item[Mémoire :]
+\item[Réseau :]
+\item[OS :]
+\item[MPI :] OpenMPI 1.4
+\item[Nombre d’ordinateurs :] 20
+\end{description}
 
 \section*{Conclusion}
 On constate que \emph{dmake} est efficace pour des makefiles dont les
