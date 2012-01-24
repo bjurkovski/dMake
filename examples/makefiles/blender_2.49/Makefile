@@ -344,6 +344,7 @@ cube_anim.blend : cube_anim.zip
 		rm cube_anim.blend ; unzip cube_anim.zip
 
 clean :
+	rm cube_anim.blend
 	rm frame*
 	rm *.mpg
 

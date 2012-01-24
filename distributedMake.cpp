@@ -104,7 +104,7 @@ int DistributedMake::getTaskDestination(Rule* rule, vector<Rule*>& result) {
 	for(int i=0; i<numCores; i++) {
 		int currentCore = (lastUsedCore + i + 1) % numCores;
 		if(currentCore == coreId) continue;
-
+/*
 		map<int, SendLog>::iterator it = filesSent.find(currentCore);
 		SendLog::iterator itFile;
 		int numEqualFiles = 0;
@@ -139,6 +139,9 @@ int DistributedMake::getTaskDestination(Rule* rule, vector<Rule*>& result) {
 			bestCandidate = currentCore;
 			result = filesToSend;
 		}
+*/
+		result = files;
+		return currentCore;
 	}
 
 	return bestCandidate;
