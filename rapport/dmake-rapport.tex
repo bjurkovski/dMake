@@ -58,6 +58,8 @@ suivantes :
 \item exécution des tâches sur les noeuds
 \item rapatriement des fichiers créés ou modifiés
 \end{itemize}
+L'archive fournie contient l'ensemble du code source compilable, les
+fichiers tests ainsi que le benchmark utilisé pour l'étude de performances.
 
 \section{Travail réalisé}
 
@@ -170,7 +172,7 @@ ne seront pas envoyés en double.
 \subsection{Installation}
 
 Pour compiler \emph{dmake}, il faut se placer à la racine du
-répertoire \emph{dmake/} puis exécuter la commande :
+répertoire \texttt{dmake/} puis exécuter la commande :
 \begin{verbatim}
 > make
 \end{verbatim}
@@ -179,11 +181,19 @@ répertoire \emph{dmake/} puis exécuter la commande :
 
 Pour déployer \emph{dmake}, il faut d'abord générer la liste des
 machines sur lesquelles on souhaite déployer. Pour cela on utilise le
-script python \emph{createMachines.py} en ayant préalablement indiqué
+script python \texttt{createMachines.py} en ayant préalablement indiqué
 les valeurs souhaitées pour les variables \texttt{startMachine},
 \texttt{NUM\_MACHINES}, et \texttt{LAST\_MACHINE} : 
 \begin{verbatim}
 > python createMachines.py
+\end{verbatim}
+
+Ensuite le déploiement lui-même s'effectue à l'aide de
+\texttt{mpirun} (qui doit être préalablement installé sur le système). Par exemple, pour lancer \emph{dmake} sur l'un des
+exemples fournis dans l'archive, il faut se placer de le dossier
+contenant l'exemple puis lancer la commande :
+\begin{verbatim}
+> mpirun -np NB_CORES -machinefile machines.txt PATH_TO_DMAKE
 \end{verbatim}
 
 
@@ -193,13 +203,72 @@ les valeurs souhaitées pour les variables \texttt{startMachine},
 
 \section{Tests de performances}
 
+Les performances de \emph{dmake} ont été évaluées à l'aide d'un
+benchmark programmé en C++.
+
 \subsection{Méthodologie}
 
+\paragraph{Configuration}
+Le benchmark utilise un fichier de configuration
+\texttt{benchmark.cfg} dans lequel on précise : 
+\begin{itemize}
+\item  le numéro de la première machine \texttt{FIRST\_MACHINE}
+et de la dernière machine \texttt{LAST\_MACHINE} de l'ensemble des machines 
+sur lequel on souhaite effectuer le déploiement
+\item le nombre de fois
+\texttt{NUM\_TIMES} qu'est répétée chaque exécution
+\item Le pas \texttt{STEP} concernant le nombre de machines utilisées
+  pour l'exécution
+\item la localisation \texttt{PATH\_TO\_DMAKE} de \emph{dmake}
+\item le répertoire d'exécution \texttt{BASE\_FOLDER}
+\item le nombre de fichier tests à exécuter \texttt{NUM\_BENCHMARKS}
+\item la liste des fichiers tests \texttt{BENCHMARK1}, \texttt{BENCHMARK2}\dots
+\end{itemize}
+
+\begin{verbatim}
+numTimes NUM_TIMES
+machines FIRST_MACHINE LAST_MACHINE
+step STEP
+dmakeFolder PATH_TO_DMAKE
+baseFolder BASE_FOLDER
+numBenchmarks NUM_BENCHMARKS
+BENCHMARK1
+BENCHMARK2
+...
+\end{verbatim}
+
+\paragraph{Fonctionnement}
+
+Le programme \emph{benchmark} fonctionne de la manière suivante : pour
+chaque fichier test proposé, il exécute successivement \emph{dmake} sur un nombre de
+machines allant de \texttt{FIRST\_MACHINE} à \texttt{LAST\_MACHINE}
+qui est incrémenté de \texttt{STEP} machines à chaque tour. Pour un
+fichier de test et un nombre de machines donnés, l'exécution est
+répétée \texttt{NUM\_TIMES} fois afin d'obtenir un temps d'exécution moyen
+qui soit représentatif. 
+Pour chaque fichier test, le temps d'exécution moyen en fonction du
+nombre de machines est écrit dans un fichier. Ce fichier est ensuite
+utilisé par gnuplot pour générer la courbe correspondante. À cette
+courbe est ajoutée une droite horizontale représentant le temps
+d'exécution de \emph{GNU make} pour le fichier test considéré. 
+
 \subsection{Conditions expérimentales}
+
+Les test ont été effectués en salle D200. La salle était peu occupée
+(environ 6 à 10 personnes). Cependant, les tests n'ayant pas tous été
+effectués le même jour, les conditions expérimentales ont pu
+varier. La charge du réseau notamment a pu être différente selon les
+fichiers tests.
 
 \subsection{Résultats et analyse}
 
 \section*{Conclusion}
+On constate que \emph{dmake} est efficace pour des makefiles dont les
+tâches sont longues et relativement indépendantes
+(cf. \texttt{premier}). En revanche lorsque le temps de communication
+n'est plus négligeable devant le temps d'exécution des tâches, les
+performances s'effondrent (cf. \texttt{matrix}). On constate le même phénomène lorsque les
+tâches sont très dépendantes, car on s'approche alors d'une exécution séquentielle.
 
 
 
