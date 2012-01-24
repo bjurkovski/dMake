@@ -164,6 +164,10 @@ void Rule::deserialize(std::string serializedRule) {
   timeModified.tm_isdst  = atoi(line.c_str());
 }
 
+struct tm Rule::getTimeModified() {
+	return timeModified;
+}
+
 bool Rule::isFile() {
 	//return ((getCommands().size()==0) && (getDependencies().size()==0));
 	return isAFile;

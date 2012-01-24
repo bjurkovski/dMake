@@ -44,6 +44,7 @@ class Rule {
 		std::string serialize();
 		void deserialize(std::string serializedRule);
 
+		struct tm getTimeModified();
 		bool isFile();
 		bool isExecutable();
 		void update();

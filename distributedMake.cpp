@@ -96,82 +96,130 @@ bool DistributedMake::canSendTask(Rule* rule) {
   return true;
 }
 
-bool DistributedMake::sendTask(Rule* rule) {
+int DistributedMake::getTaskDestination(Rule* rule, vector<Rule*>& result) {
+	vector<Rule*> files = rule->getFileDependencies();
+	vector<Rule*> filesToSend;
+	int bestCandidate = -1;
+	int maxNumFiles = 0;
 	for(int i=0; i<numCores; i++) {
 		int currentCore = (lastUsedCore + i + 1) % numCores;
 		if(currentCore == coreId) continue;
-		if(coreWorkingOn[currentCore] == "") {
-			if (DEBUG)
-				cout << "DEBUG -- sendTask : Dispatching rule '" << rule->getName() << "' to core " << currentCore << endl;
 
-			vector<Rule*> files = rule->getFileDependencies();
-			vector<Rule*> commandFiles = vector<Rule*>();
-			vector<string> commands = rule->getCommands();
-
-			for(unsigned int j=0; j<commands.size(); j++) {
-				istringstream iss(commands[j]);
-				string exec;
-				iss >> exec;
-				//char* exec = strtok((char*)commands[j].c_str(), " \t");
-				if(exec.size() > 2) {
-					if(exec[0] == '.' && exec[1] == '/') {
-						Rule* commandFile = new Rule(exec);
-						files.push_back(commandFile);
-						commandFiles.push_back(commandFile);
+		map<int, SendLog>::iterator it = filesSent.find(currentCore);
+		SendLog::iterator itFile;
+		int numEqualFiles = 0;
+		filesToSend.clear();
+		if(it != filesSent.end()) {
+			for(unsigned int j=0; j<files.size(); j++) {
+				itFile = filesSent[currentCore].find(files[j]->getName());
+				if(itFile != filesSent[currentCore].end()) {
+					struct tm timeDependency = files[j]->getTimeModified();
+					if(mktime(&(timeDependency))
+						<= mktime(&(filesSent[currentCore][files[j]->getName()])))
+					{
+						numEqualFiles++;
+					}
+					else {
+						filesToSend.push_back(files[j]);
 					}
 				}
-			}
-
-			unsigned int numFiles = files.size();
-			if (DEBUG)
-				cout << "DEBUG -- sendTask : Will send " << numFiles << " files to core " << currentCore << endl;
-			MPI_Send(&numFiles, 1, MPI_INT, currentCore, NUM_FILES_MESSAGE, MPI_COMM_WORLD);
-			for(unsigned int currentFile=0; currentFile<numFiles; currentFile++) {
-				int messageSize;
-				if (DEBUG)
-			  		cout << "DEBUG -- sendTask : Will send " << files[currentFile]->getName() << endl;
-				char* buffer = serializeFile(files[currentFile]->getName(), messageSize);
-				if(buffer == NULL) {
-				  cout << "dmake: *** sendTask : serializeFile returned Null" << endl;
-				  exit(1);
+				else {
+					filesToSend.push_back(files[j]);
 				}
-
-				int fileInfo[2];
-				fileInfo[0] = messageSize;
-				if(files[currentFile]->isExecutable())
-					fileInfo[1] = EXECUTABLE_FILE;
-				else
-					fileInfo[1] = ORDINARY_FILE;
-
-				MPI_Send(fileInfo, 2, MPI_INT, currentCore, FILE_SIZE_AND_TYPE_MESSAGE, MPI_COMM_WORLD);
-				MPI_Send(buffer, messageSize, MPI_CHAR, currentCore, FILE_MESSAGE, MPI_COMM_WORLD);
-				free(buffer);
 			}
-
-			for(unsigned int j=0; j<commandFiles.size(); j++) {
-				delete commandFiles[j];
+		}
+		else {
+			for(unsigned int j=0; j<files.size(); j++) {
+				filesToSend.push_back(files[j]);
 			}
-			commandFiles.clear();
+		}
 
-			int numCommands = commands.size();
-			if (DEBUG)
-				cout << "DEBUG -- sendTask : Will send " << numCommands << " commands to core " << currentCore << endl;
-			MPI_Send(&numCommands, 1, MPI_INT, currentCore, NUM_COMMANDS_MESSAGE, MPI_COMM_WORLD);
-
-			string serializedCommands = "";
-			for(int j=0; j<numCommands; j++) {
-				if(j>0) serializedCommands += "\n";
-				serializedCommands += commands[j];
-			}
-			if (numCommands != 0)
-			  MPI_Send((void*) serializedCommands.c_str(), serializedCommands.size(), MPI_CHAR, currentCore, COMMANDS_MESSAGE, MPI_COMM_WORLD);
-
-			MPI_Irecv(&resultCodes[currentCore], 1, MPI_INT, currentCore, NUM_FILES_MESSAGE, MPI_COMM_WORLD, &mpiRequests[currentCore]);
-			coreWorkingOn[currentCore] = rule->getName();
-			lastUsedCore = currentCore;
-			return true;
+		if((bestCandidate == -1) || (numEqualFiles > maxNumFiles)) {
+			maxNumFiles = numEqualFiles;
+			bestCandidate = currentCore;
+			result = filesToSend;
 		}
 	}
+
+	return bestCandidate;
+}
+
+bool DistributedMake::sendTask(Rule* rule) {
+	vector<Rule*> files;
+	int currentCore = getTaskDestination(rule, files);
+	if((currentCore!=-1) && (coreWorkingOn[currentCore] == "")) {
+		if (DEBUG)
+			cout << "DEBUG -- sendTask : Dispatching rule '" << rule->getName() << "' to core " << currentCore << endl;
+
+//		vector<Rule*> files = rule->getFileDependencies();
+		vector<Rule*> commandFiles = vector<Rule*>();
+		vector<string> commands = rule->getCommands();
+
+		for(unsigned int j=0; j<commands.size(); j++) {
+			istringstream iss(commands[j]);
+			string exec;
+			iss >> exec;
+			//char* exec = strtok((char*)commands[j].c_str(), " \t");
+			if(exec.size() > 2) {
+				if(exec[0] == '.' && exec[1] == '/') {
+					Rule* commandFile = new Rule(exec);
+					files.push_back(commandFile);
+					commandFiles.push_back(commandFile);
+				}
+			}
+		}
+
+		unsigned int numFiles = files.size();
+		if (DEBUG)
+			cout << "DEBUG -- sendTask : Will send " << numFiles << " files to core " << currentCore << endl;
+		MPI_Send(&numFiles, 1, MPI_INT, currentCore, NUM_FILES_MESSAGE, MPI_COMM_WORLD);
+		for(unsigned int currentFile=0; currentFile<numFiles; currentFile++) {
+			int messageSize;
+			if (DEBUG)
+		  		cout << "DEBUG -- sendTask : Will send " << files[currentFile]->getName() << endl;
+			char* buffer = serializeFile(files[currentFile]->getName(), messageSize);
+			if(buffer == NULL) {
+			  cout << "dmake: *** sendTask : serializeFile returned Null" << endl;
+			  exit(1);
+			}
+
+			int fileInfo[2];
+			fileInfo[0] = messageSize;
+			if(files[currentFile]->isExecutable())
+				fileInfo[1] = EXECUTABLE_FILE;
+			else
+				fileInfo[1] = ORDINARY_FILE;
+
+			filesSent[currentCore][files[currentFile]->getName()] = files[currentFile]->getTimeModified();
+			MPI_Send(fileInfo, 2, MPI_INT, currentCore, FILE_SIZE_AND_TYPE_MESSAGE, MPI_COMM_WORLD);
+			MPI_Send(buffer, messageSize, MPI_CHAR, currentCore, FILE_MESSAGE, MPI_COMM_WORLD);
+			free(buffer);
+		}
+
+		for(unsigned int j=0; j<commandFiles.size(); j++) {
+			delete commandFiles[j];
+		}
+		commandFiles.clear();
+
+		int numCommands = commands.size();
+		if (DEBUG)
+			cout << "DEBUG -- sendTask : Will send " << numCommands << " commands to core " << currentCore << endl;
+		MPI_Send(&numCommands, 1, MPI_INT, currentCore, NUM_COMMANDS_MESSAGE, MPI_COMM_WORLD);
+
+		string serializedCommands = "";
+		for(int j=0; j<numCommands; j++) {
+			if(j>0) serializedCommands += "\n";
+			serializedCommands += commands[j];
+		}
+		if (numCommands != 0)
+		  MPI_Send((void*) serializedCommands.c_str(), serializedCommands.size(), MPI_CHAR, currentCore, COMMANDS_MESSAGE, MPI_COMM_WORLD);
+
+		MPI_Irecv(&resultCodes[currentCore], 1, MPI_INT, currentCore, NUM_FILES_MESSAGE, MPI_COMM_WORLD, &mpiRequests[currentCore]);
+		coreWorkingOn[currentCore] = rule->getName();
+		lastUsedCore = currentCore;
+		return true;
+	}
+
   return false;
 }
 

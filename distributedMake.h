@@ -9,6 +9,8 @@
 #include <string>
 #include <algorithm>
 #include <fstream>
+#include <sys/stat.h>	
+#include <unistd.h>
 
 #include <mpi.h>
 
@@ -27,6 +29,8 @@ enum {
 	EXECUTABLE_FILE
 };
 
+typedef std::map< std::string, struct tm > SendLog;
+
 class DistributedMake : public Make {
 	protected:
 		int numCores;
@@ -41,6 +45,7 @@ class DistributedMake : public Make {
 	private:
 		char procFolder[20];
 		int numFilesToReceive;
+		std::map<int, SendLog> filesSent;
 
 		void createInitialSet(std::string startRule);
 		std::vector<Rule*> topologicalSort();
@@ -49,6 +54,7 @@ class DistributedMake : public Make {
 		char* deserializeFile(char* file, std::string& filename);
 
 		bool canSendTask(Rule* rule);
+		int getTaskDestination(Rule* rule, std::vector<Rule*>& result);
 		bool sendTask(Rule* rule);
 		void receiveResponse();
 		std::vector<std::string> receiveTask();
