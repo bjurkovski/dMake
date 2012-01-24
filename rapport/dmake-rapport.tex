@@ -1,0 +1,209 @@
+\documentclass[a4paper,12pt,twoside]{article}
+
+\usepackage{ucs}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[frenchb]{babel}
+\usepackage{lmodern}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{float} 
+\usepackage{tabularx}
+\usepackage{lastpage}           % numérotation
+\usepackage{fancyhdr}           % en-têtes
+\usepackage{verbatim}
+\usepackage{mathpazo}           % police Palatino
+\usepackage{xcolor}
+\usepackage{listingsutf8}
+
+% En-têtes
+\pagestyle{headings}
+
+\title{Systèmes distribués\\
+  Make distribué}
+\author{Bruno \textsc{Jurkovski}\and Élisabeth \textsc{Rousset}}
+
+% \newenvironment{changemargin}[2]%
+% {\begin{list}{}{%
+%       \setlength{\listparindent}{\parindent}%
+%       \setlength{\itemindent}{\parindent}%
+%       \setlength{\leftmargin}{#1}%
+%       \setlength{\rightmargin}{#2}%
+%     }\item }%
+%   {\end{list}}
+
+\begin{document}
+
+\maketitle
+\newpage
+
+\tableofcontents
+
+\listoffigures
+
+\newpage
+
+\section*{Introduction}
+
+Ce projet a pour but de programmer une version distribuée de \emph{GNU
+  make}. L'exécutable créé sera désigné dans la suite de ce document
+par le nom \emph{dmake}. Ce programme possède les fonctionnalités
+suivantes :
+\begin{itemize}
+\item parsing de makefiles simples pouvant contenir des variables
+\item distribution des tâches sur un ensemble de noeuds
+\item transfert des fichiers nécessaires à l'exécution des tâches sur
+  les noeuds concernés
+\item exécution des tâches sur les noeuds
+\item rapatriement des fichiers créés ou modifiés
+\end{itemize}
+
+\section{Travail réalisé}
+
+Cette section détaille les choix de conception ainsi que
+l'installation et le déploiement de \emph{dmake}.
+
+\subsection{Langage}
+
+\emph{Dmake} est programmé en langage C++. Ce langage a été choisi
+pour les raisons suivantes :
+\begin{itemize}
+\item Il s'agit d'un langage objet, ce qui permet d'organiser
+  clairement le code et de le rendre lisible.
+\item Ce langage possède de nombreuses bibliothèques optimisées qui
+  facilitent la tâche du programmeur. En particulier, la gestion
+  avancée des \texttt{string} est un atout pour le parsing de
+  makefiles. Ce langage paraît donc plus aproprié que le C pour
+  programmer \emph{dmake}.
+\item Une fois compilé, un exécutable programmé en C++ est nettement
+  plus rapide qu'un exécutable équivalent programmé dans un langage
+  plus haut niveau comme Java. Ceci est déterminant dans la mesure où
+  l'objectif de \emph{dmake} est la performance.
+\end{itemize}
+
+\subsection{Bibliothèques}
+
+\emph{Dmake} fait appel aux bibliothèques suivantes pour la gestion
+des collections :
+\begin{itemize}
+\item \texttt{set}
+\item \texttt{map}
+\item \texttt{vector}
+\end{itemize}
+
+Pour la gestion des entrées/sorties, \emph{dmake} utilise :
+\begin{itemize}
+\item \texttt{cstdio}
+\item \texttt{iostream}
+\end{itemize}
+
+Les chaînes de caractères sont gérées à l'aide des bibliothèques
+suivantes :
+\begin{itemize}
+\item \texttt{cstring}
+\item \texttt{string}
+\end{itemize}
+
+Les flux sont gérés à l'aide de :
+\begin{itemize}
+\item \texttt{sstream}
+\item \texttt{streambuf}
+\item \texttt{fstream}
+\end{itemize}
+
+La vérification de la date de modification/création d'un fichier est
+faite grâce à :
+\begin{itemize}
+\item \texttt{ctime}
+\end{itemize}
+
+Le déploiement et l'exécution sur les noeuds utilisent les bibliothèques :
+\begin{itemize}
+\item \texttt{mpi}
+\item \texttt{sys/stat}
+\item \texttt{cstdlib}
+\item \texttt{unistd}
+\item \texttt{algorithm}
+\end{itemize}
+
+\paragraph{Remarque}
+Le transfert de fichiers et de tâches sur le différents noeuds est
+effectué exclusivement avec les primitives de la bibliothèque MPI.
+
+\subsection{Algorithmes}
+
+\paragraph{Graphe de dépendances}
+
+L'exécutable \emph{dmake} crée un graphe de dépendances orienté
+acyclique pour représenter les dépendances entre les cibles du
+makefile donné en entrée. Ce graphe est obtenu grâce à un tri
+topologique effectué après le parsing du makefile.
+
+\paragraph{Équilibrage de charge}
+
+La répartion des tâches est effectuée de manière centralisée à l'aide
+d'un algorithme d'ordonnancement par liste. Ce dernier s'appuie sur le
+graphe de dépendances obtenu précédemment.
+
+\subsection{Optimisations}
+
+Deux optimisations principales ont été apportées à l'algorithme
+d'ordonnancement pour améliorer les performances de \emph{dmake}.
+
+Tout d'abord, la quantité de communications a été considérablement
+réduite en forçant l'exécution de la dernière cible du makefile sur le
+noeud central. En effet, il a été constaté que de manière générale, la
+dernière cible (au sens du graphe de dépendances) utilise l'ensemble
+des fichiers crées par les cibles précédentes.
+
+Toujours pour réduire les communications, le choix d'un noeud pour
+exécuter une nouvelle tâche prend en compte les fichiers envoyés
+précédemment à ce nœud. Ainsi un nœud possédant déjà une partie des
+fichier nécessaires à la nouvelle cible sera favorisé, et les fichiers
+ne seront pas envoyés en double.
+
+\subsection{Architecture}
+
+
+
+\subsection{Installation}
+
+Pour compiler \emph{dmake}, il faut se placer à la racine du
+répertoire \emph{dmake/} puis exécuter la commande :
+\begin{verbatim}
+> make
+\end{verbatim}
+
+\subsection{Déploiement}
+
+Pour déployer \emph{dmake}, il faut d'abord générer la liste des
+machines sur lesquelles on souhaite déployer. Pour cela on utilise le
+script python \emph{createMachines.py} en ayant préalablement indiqué
+les valeurs souhaitées pour les variables \texttt{startMachine},
+\texttt{NUM\_MACHINES}, et \texttt{LAST\_MACHINE} : 
+\begin{verbatim}
+> python createMachines.py
+\end{verbatim}
+
+
+% Pour déployer \emph{dmake}, il faut tout d'abord regler les paramètre
+% de déploiment dans \texttt{dmake.cfg} en indiquant le nombre de
+% machines sur lesquelles on souhaite déployer \emph{dmake}, ainsi que 
+
+\section{Tests de performances}
+
+\subsection{Méthodologie}
+
+\subsection{Conditions expérimentales}
+
+\subsection{Résultats et analyse}
+
+\section*{Conclusion}
+
+
+
+
+
+
+\end{document}
