@@ -371,6 +371,16 @@ suivantes :
 \item une cible "clean" a été ajoutée pour faire le nettoyage entre deux exécutions.
 \end{itemize}
 
+\paragraph{Environnement d'exécution}
+\begin{description}
+\item[Processeur :] 2 coeurs Intel Pentium D CPU 2.80GHz
+\item[Mémoire :] 1Go
+\item[Réseau :] ethernet
+\item[OS :] ubuntu 11.04
+\item[MPI :] OpenMPI 1.4
+\item[Nombre d’ordinateurs :] 26
+\end{description}
+
 \subsection{Résultats et analyse}
 
 Dans les graphiques suivants, le nombre de machines sur lesquelles est
@@ -378,56 +388,79 @@ lancée l'exécution est indiqué en abscisse, tandis que le temps
 d'exécution en secondes ou l'accélération comparativement à une
 exécution de \emph{GNU make} est indiqué en ordonnées.
 
-\subsubsection{Blender 2.49}
-
-Le benchmark a été réalisé avec un pas de 5 machines, les exécutions
-se faisant successivement sur 5, 10, 15 et 20 machines. Chaque
+Le benchmark a été réalisé sur un ensemble de 2 à 26 machines avec un pas de 3 machines. Chaque
 exécution a été répétée 3 fois pour obtenir une moyenne
 représentative.
 
+
+\subsubsection{Blender 2.49}
+
+
 \begin{figure}[H]
   \centering
-  \includegraphics[scale=0.5]{benchmark_blender_2_49_01.png}
+  \includegraphics[scale=0.5]{graph_blender_2.49.png}
   \caption{Blender 2.49}
   \label{fig:blender249}
 \end{figure}
 
 On voit ici que l'expérimentation est conforme à nos attentes, car
-l'accélération de \emph{dmake} est proche de l'accélération
-théorique. Le décalage par rapport à l'accélération théorique peut
-être imputée à la partie du code qui est non parallèle. De plus,
-l'accélération se stabilise au delà de 20 machine, ce qui s'explique
-par le fait que le makefile ne contient que 20 cibles. Les machines
-supplémentaires sont donc inutiles. 
-
-\subsubsection{Premier}
-
-Le benchmark a été réalisé avec un pas de 5 machines, les exécutions
-se faisant successivement sur 5, 10, 15 et 20 machines. Chaque
-exécution a été répétée 3 fois pour obtenir une moyenne
-représentative.
+l'accélération de \emph{dmake} est relativement proche de l'accélération
+théorique (cf. figure \ref{fig:blender249acc}). Le décalage par rapport à l'accélération théorique peut
+être imputé à la partie du code qui est non parallèle. 
 
 \begin{figure}[H]
   \centering
-  \includegraphics[scale=0.5]{benchmark_premier_01.png}
+  \includegraphics[scale=0.5]{acceleration_blender_2.49.png}
+  \caption{Blender 2.49 : Accélération}
+  \label{fig:blender249acc}
+\end{figure}
+
+
+\subsubsection{Premier}
+
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[scale=0.5]{graph_premier.png}
   \caption{Premier}
   \label{fig:premier}
 \end{figure}
 
 De même que précédemment, l'expérimentation est conforme à nos attentes, car
-l'accélération de \emph{dmake} est proche de l'accélération
-théorique. Ici aussi le décalage par rapport à l'accélération théorique peut
-être imputée à la partie du code qui est non parallèle. 
+l'accélération de \emph{dmake} est relativement proche de l'accélération
+théorique (cf. figure \ref{fig:premierAcc}). Ici aussi le décalage par rapport à l'accélération théorique peut
+être imputé à la partie du code qui est non parallèle. 
 
-\subsubsection{L'environnement d'exécution}
-\begin{description}
-\item[Processeur :] TO CHECK
-\item[Mémoire :]
-\item[Réseau :]
-\item[OS :]
-\item[MPI :] OpenMPI 1.4
-\item[Nombre d’ordinateurs :] 20
-\end{description}
+\begin{figure}[H]
+  \centering
+  \includegraphics[scale=0.5]{acceleration_premier.png}
+  \caption{Premier : Accélération}
+  \label{fig:premierAcc}
+\end{figure}
+
+\subsubsection{Matrix}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[scale=0.5]{graph_matrix.png}
+  \caption{Matrix}
+  \label{fig:matrix}
+\end{figure}
+
+On voit ici que l'expérimentation est contraire à nos
+attentes. \emph{Dmake} est systématiquement plus lent que \emph{make},
+même lorsque l'exécution est lancée sur un grand nombre de
+machines. Cela s'explique par le fait que ce test génère un très grand
+nombre de fichiers de petite taille. Le temps de transfert de ces
+fichiers entre les noeuds devient alors non négligeable par rapport au
+temps d'exécution des tâches.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[scale=0.5]{acceleration_matrix.png}
+  \caption{Premier}
+  \label{fig:premier}
+\end{figure}
 
 \section*{Conclusion}
 On constate que \emph{dmake} est efficace pour des makefiles dont les
