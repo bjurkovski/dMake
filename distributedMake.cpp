@@ -51,32 +51,14 @@ vector<Rule*> DistributedMake::topologicalSort() {
   return orderedList;
 }
 
-void DistributedMake::serializeFileInfo(int& size, int& type, struct tm& timeModified, int output[11]) {
+void DistributedMake::serializeFileInfo(int& size, int& type, int output[DMAKE_FILE_INFO_SIZE]) {
 	output[0] = size;
 	output[1] = type;
-	output[2] = timeModified.tm_sec;
-	output[3] = timeModified.tm_min;
-	output[4] = timeModified.tm_hour;
-	output[5] = timeModified.tm_mday;
-	output[6] = timeModified.tm_mon;
-	output[7] = timeModified.tm_year;
-	output[8] = timeModified.tm_wday;
-	output[9] = timeModified.tm_yday;
-	output[10] = timeModified.tm_isdst;
 }
 
-void DistributedMake::deserializeFileInfo(int input[11], int& size, int& type, struct tm& timeModified) {
+void DistributedMake::deserializeFileInfo(int input[DMAKE_FILE_INFO_SIZE], int& size, int& type) {
 	size = input[0];
 	type = input[1];
-	timeModified.tm_sec = input[2];
-	timeModified.tm_min = input[3];
-	timeModified.tm_hour = input[4];
-	timeModified.tm_mday = input[5];
-	timeModified.tm_mon = input[6];
-	timeModified.tm_year = input[7];
-	timeModified.tm_wday = input[8];
-	timeModified.tm_yday = input[9];
-	timeModified.tm_isdst = input[10];
 }
 
 char* DistributedMake::serializeFile(string filename, int& size, string folder) {
@@ -124,8 +106,24 @@ bool DistributedMake::canSendTask(Rule* rule) {
   return true;
 }
 
-int DistributedMake::getTaskDestination(Rule* rule, vector<Rule*>& result) {
+int DistributedMake::getTaskDestination(Rule* rule, vector<Rule*>& result, vector<Rule*>& commandFiles) {
 	vector<Rule*> files = rule->getFileDependencies();
+	vector<string> commands = rule->getCommands();
+
+	for(unsigned int j=0; j<commands.size(); j++) {
+		istringstream iss(commands[j]);
+		string exec;
+		iss >> exec;
+		//char* exec = strtok((char*)commands[j].c_str(), " \t");
+		if(exec.size() > 2) {
+			if(exec[0] == '.' && exec[1] == '/') {
+				Rule* commandFile = new Rule(exec);
+				files.push_back(commandFile);
+				commandFiles.push_back(commandFile);
+			}
+		}
+	}
+
 	vector<Rule*> filesToSend;
 	int bestCandidate = -1;
 	int maxNumFiles = 0;
@@ -134,8 +132,8 @@ int DistributedMake::getTaskDestination(Rule* rule, vector<Rule*>& result) {
 		if(currentCore == coreId) continue;
 		if(coreWorkingOn[currentCore] != "") continue;
 //*
-		map<int, SendLog>::iterator it = filesSent.find(currentCore);
-		SendLog::iterator itFile;
+		map<int, VersionTable>::iterator it = filesSent.find(currentCore);
+		VersionTable::iterator itFile;
 		int numEqualFiles = 0;
 		filesToSend.clear();
 		if(it != filesSent.end()) {
@@ -143,8 +141,7 @@ int DistributedMake::getTaskDestination(Rule* rule, vector<Rule*>& result) {
 				itFile = filesSent[currentCore].find(files[j]->getName());
 				if(itFile != filesSent[currentCore].end()) {
 					struct tm timeDependency = files[j]->getTimeModified();
-					if(mktime(&(timeDependency))
-						<= mktime(&(filesSent[currentCore][files[j]->getName()])))
+					if(fileVersion[files[j]->getName()] <= filesSent[currentCore][files[j]->getName()])
 					{
 						//cout << "checking core " << currentCore << " - ";
 						//cout << "file " << files[j]->getName() << " is already there!" << endl;
@@ -186,28 +183,15 @@ int DistributedMake::getTaskDestination(Rule* rule, vector<Rule*>& result) {
 
 bool DistributedMake::sendTask(Rule* rule) {
 	vector<Rule*> files;
-	int currentCore = getTaskDestination(rule, files);
+	vector<Rule*> commandFiles;
+	int currentCore = getTaskDestination(rule, files, commandFiles);
 	if(currentCore!=-1) {
 		if (DEBUG)
 			cout << "DEBUG -- sendTask : Dispatching rule '" << rule->getName() << "' to core " << currentCore << endl;
 
 //		vector<Rule*> files = rule->getFileDependencies();
-		vector<Rule*> commandFiles = vector<Rule*>();
+//		vector<Rule*> commandFiles = vector<Rule*>();
 		vector<string> commands = rule->getCommands();
-
-		for(unsigned int j=0; j<commands.size(); j++) {
-			istringstream iss(commands[j]);
-			string exec;
-			iss >> exec;
-			//char* exec = strtok((char*)commands[j].c_str(), " \t");
-			if(exec.size() > 2) {
-				if(exec[0] == '.' && exec[1] == '/') {
-					Rule* commandFile = new Rule(exec);
-					files.push_back(commandFile);
-					commandFiles.push_back(commandFile);
-				}
-			}
-		}
 
 		unsigned int numFiles = files.size();
 		if (DEBUG)
@@ -223,22 +207,20 @@ bool DistributedMake::sendTask(Rule* rule) {
 			  exit(1);
 			}
 
-			int fileInfo[11], fileType;
+			int fileInfo[DMAKE_FILE_INFO_SIZE], fileType;
 			if(files[currentFile]->isExecutable()) fileType = EXECUTABLE_FILE;
 			else fileType = ORDINARY_FILE;
-			struct tm timeModified = files[currentFile]->getTimeModified();
-			serializeFileInfo(messageSize, fileType, timeModified, fileInfo);
+			serializeFileInfo(messageSize, fileType, fileInfo);
 
-			filesSent[currentCore][files[currentFile]->getName()] = files[currentFile]->getTimeModified();
-			MPI_Send(fileInfo, 11, MPI_INT, currentCore, FILE_SIZE_AND_TYPE_MESSAGE, MPI_COMM_WORLD);
+			VersionTable::iterator it = fileVersion.find(files[currentFile]->getName());
+			if(it == fileVersion.end())
+				filesSent[currentCore][files[currentFile]->getName()] = 0;
+			else
+				filesSent[currentCore][files[currentFile]->getName()] = it->second;
+			MPI_Send(fileInfo, DMAKE_FILE_INFO_SIZE, MPI_INT, currentCore, FILE_SIZE_AND_TYPE_MESSAGE, MPI_COMM_WORLD);
 			MPI_Send(buffer, messageSize, MPI_CHAR, currentCore, FILE_MESSAGE, MPI_COMM_WORLD);
 			free(buffer);
 		}
-
-		for(unsigned int j=0; j<commandFiles.size(); j++) {
-			delete commandFiles[j];
-		}
-		commandFiles.clear();
 
 		int numCommands = commands.size();
 		if (DEBUG)
@@ -259,6 +241,11 @@ bool DistributedMake::sendTask(Rule* rule) {
 		return true;
 	}
 
+	for(unsigned int j=0; j<commandFiles.size(); j++) {
+		delete commandFiles[j];
+	}
+	commandFiles.clear();
+
   return false;
 }
 
@@ -268,9 +255,7 @@ void DistributedMake::receiveResponse() {
 
 		int completed = 0;
 		MPI_Status status;
-		int fileInfo[11], fileSize, fileType, sizeReceived;
-		struct tm fileTimeModified;
-		struct utimbuf timeInfo;
+		int fileInfo[DMAKE_FILE_INFO_SIZE], fileSize, fileType, sizeReceived;
 		char* buffer;
 
 		MPI_Test(&mpiRequests[i], &completed, &status);
@@ -280,8 +265,8 @@ void DistributedMake::receiveResponse() {
 			}
 
 			for(int j=0; j<resultCodes[i]; j++) {
-				MPI_Recv(fileInfo, 11, MPI_INT, i, FILE_SIZE_AND_TYPE_MESSAGE, MPI_COMM_WORLD, &status);
-				deserializeFileInfo(fileInfo, fileSize, fileType, fileTimeModified);
+				MPI_Recv(fileInfo, DMAKE_FILE_INFO_SIZE, MPI_INT, i, FILE_SIZE_AND_TYPE_MESSAGE, MPI_COMM_WORLD, &status);
+				deserializeFileInfo(fileInfo, fileSize, fileType);
 				if (DEBUG)
 					cout << "DEBUG -- receiveResponse : File size is "<< fileSize << endl;
 				buffer = (char*) malloc(sizeof(char)*fileSize+1);
@@ -302,10 +287,9 @@ void DistributedMake::receiveResponse() {
 				FILE* newFile = fopen(filename.c_str(), "w");
 				fwrite(content, sizeof(char), fileSize - filenameSize - 1, newFile);
 				fclose(newFile);
-				filesSent[i][filename] = fileTimeModified;
-				timeInfo.actime = mktime(&fileTimeModified);
-				timeInfo.modtime = timeInfo.actime;
-				utime(filename.c_str(), &timeInfo);
+				logicClock++;
+				fileVersion[filename] = logicClock;
+				filesSent[i][filename] = logicClock;
 
 				if(fileType == EXECUTABLE_FILE) {
 					system(("chmod +x " + filename).c_str());
@@ -325,9 +309,7 @@ void DistributedMake::receiveResponse() {
 
 vector<string> DistributedMake::receiveTask() {
   char* buffer;
-  int fileInfo[11], fileSize, fileType, numCommands, completed=0;
-  struct tm fileTimeModified;
-  struct utimbuf timeInfo;
+  int fileInfo[DMAKE_FILE_INFO_SIZE], fileSize, fileType, numCommands, completed=0;
   const int maxCommandSize = 2048;
   int sizeReceived;
   MPI_Status status;
@@ -339,8 +321,8 @@ vector<string> DistributedMake::receiveTask() {
       cout << "DEBUG -- receiveTask : Core " << coreId << " will receive " << numFilesToReceive << " files." << endl;
     for(int i=0; i<numFilesToReceive; i++) {
 
-		MPI_Recv(fileInfo, 11, MPI_INT, 0, FILE_SIZE_AND_TYPE_MESSAGE, MPI_COMM_WORLD, &status);
-		deserializeFileInfo(fileInfo, fileSize, fileType, fileTimeModified);
+		MPI_Recv(fileInfo, DMAKE_FILE_INFO_SIZE, MPI_INT, 0, FILE_SIZE_AND_TYPE_MESSAGE, MPI_COMM_WORLD, &status);
+		deserializeFileInfo(fileInfo, fileSize, fileType);
 
       buffer = (char*) malloc(sizeof(char)*fileSize+1);
       if(buffer == NULL) {
@@ -368,10 +350,6 @@ vector<string> DistributedMake::receiveTask() {
       FILE* newFile = fopen(newFilePath, "w");
       fwrite(content, sizeof(char), fileSize - filenameSize - 1, newFile);
       fclose(newFile);
-
-		timeInfo.actime = mktime(&fileTimeModified);
-		timeInfo.modtime = timeInfo.actime;
-		utime(newFilePath, &timeInfo);
 
 		if(fileType == EXECUTABLE_FILE) {
 			string command = "chmod +x ";
@@ -501,7 +479,7 @@ vector<string> DistributedMake::executeCommands(vector<string> commands) {
 
 void DistributedMake::sendResponse(vector<string> newFiles) {
 	int numFiles = newFiles.size();
-	int fileInfo[11], messageSize, fileType;
+	int fileInfo[DMAKE_FILE_INFO_SIZE], messageSize, fileType;
 	if (DEBUG)
 		cout << "DEBUG -- sendResponse : numFiles is " << numFiles << endl;
 	MPI_Send(&numFiles, 1, MPI_INT, 0, NUM_FILES_MESSAGE, MPI_COMM_WORLD);
@@ -518,10 +496,9 @@ void DistributedMake::sendResponse(vector<string> newFiles) {
 		Rule f(folder+newFiles[i]);
 		if(f.isExecutable()) fileType = EXECUTABLE_FILE;
 		else fileType = ORDINARY_FILE;
-		struct tm timeModified = f.getTimeModified();
-		serializeFileInfo(messageSize, fileType, timeModified, fileInfo);
+		serializeFileInfo(messageSize, fileType, fileInfo);
 
-		MPI_Send(fileInfo, 11, MPI_INT, 0, FILE_SIZE_AND_TYPE_MESSAGE, MPI_COMM_WORLD);
+		MPI_Send(fileInfo, DMAKE_FILE_INFO_SIZE, MPI_INT, 0, FILE_SIZE_AND_TYPE_MESSAGE, MPI_COMM_WORLD);
 		if (DEBUG)
 			cout << "DEBUG -- sendResponse : message size is " << messageSize << endl;
 		MPI_Send(buffer, messageSize, MPI_CHAR, 0, FILE_MESSAGE, MPI_COMM_WORLD);
@@ -536,6 +513,7 @@ DistributedMake::DistributedMake(int numCores, int coreId) : coreWorkingOn(numCo
   this->numCores = numCores;
   this->coreId = coreId;
   this->lastUsedCore = 0;
+  this->logicClock = 0;
 
   MPI_Request r;
   for(int i=0; i<numCores; i++) {

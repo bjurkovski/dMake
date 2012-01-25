@@ -31,7 +31,9 @@ enum {
 	EXECUTABLE_FILE
 };
 
-typedef std::map< std::string, struct tm > SendLog;
+#define DMAKE_FILE_INFO_SIZE 2
+
+typedef std::map< std::string, int > VersionTable;
 
 class DistributedMake : public Make {
 	protected:
@@ -47,19 +49,21 @@ class DistributedMake : public Make {
 	private:
 		char procFolder[20];
 		int numFilesToReceive;
-		std::map<int, SendLog> filesSent;
+		VersionTable fileVersion;
+		std::map<int, VersionTable> filesSent;
 
 		void createInitialSet(std::string startRule);
 		std::vector<Rule*> topologicalSort();
 
-		void serializeFileInfo(int& size, int& type, struct tm& timeModified, int output[11]);
-		void deserializeFileInfo(int input[11], int& size, int& type, struct tm& timeModified);
+		int logicClock;
+		void serializeFileInfo(int& size, int& type, int output[DMAKE_FILE_INFO_SIZE]);
+		void deserializeFileInfo(int input[DMAKE_FILE_INFO_SIZE], int& size, int& type);
 
 		char* serializeFile(std::string filename, int& size, std::string folder="");
 		char* deserializeFile(char* file, std::string& filename);
 
 		bool canSendTask(Rule* rule);
-		int getTaskDestination(Rule* rule, std::vector<Rule*>& result);
+		int getTaskDestination(Rule* rule, std::vector<Rule*>& result, std::vector<Rule*>& commandFiles);
 		bool sendTask(Rule* rule);
 		void receiveResponse();
 		std::vector<std::string> receiveTask();
