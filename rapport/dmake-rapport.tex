@@ -142,31 +142,35 @@ acyclique pour représenter les dépendances entre les cibles du
 makefile donné en entrée. Nous considérons que le makefile est bien
 formée et n'a pas des dépendances cycliques.
 
-\paragraph{Ordonnance des tâches}
+\paragraph{Ordonnancement des tâches}
 
-Aprés l'obtention du graphe, il faut découvrir l'ordre dans lequel
-les tâches seront exécutés. Pour cela, on fait un tri
-topologique en utilisant les informations du graphe. Pour envoyer les tâches, 
-puis, nous avons seulement besoin de suivre cet ordre et de vérifier si toutes 
-les dépendances de ce règle ont été exécutés.
+Une fois le graphe de dépendances obtenu, on détermine l'ordre dans lequel
+les tâches seront exécutées à l'aide d'un tri
+topologique du graphe. L'envoi des tâches est effectué selon cet
+ordre, en vérifiant pour chaque règle si toutes ses dépendances ont
+bien été exécutées. 
 
 \paragraph{Équilibrage de charge}
 
-Le processus maître conserve la trace de l'état de chacun des esclaves (il stocke le nom de la règle actuelle sur lesquels ils travaillent ou une valeur vide si ils sont libres). Chaque fois qu'un esclave indique à le maître qu'il a terminé une tâche, le maître vérifie si la cible suivante de la liste peut être expédié. Si toutes ses dépendances ont été achevées, le maître envoie la tâche au processus qui l'a demandé.
+Le processus maître conserve la trace de l'état de chacun des esclaves
+(il stocke le nom de la règle sur laquelle chaque esclave travaille ou
+une valeur vide si il est libre). Chaque fois qu'un esclave indique
+au maître qu'il a terminé une tâche, ce dernier vérifie si la cible
+suivante de la liste peut être expédié. Si toutes ses dépendances sont
+achevées, le maître envoie la tâche à l'esclave qui l'a demandée.  
 
 \subsection{Optimisations}
 
-L'optimisation principale qui a été apportée  pour améliorer les performances de \emph{dmake}
-c'est de forcer le noeud central à exécuter la dernière cible.
-
-Tout d'abord, la quantité de communications a été considérablement
-réduite. En effet, il a été constaté que de manière générale, la
-dernière cible (au sens du graphe de dépendances) utilise l'ensemble
+L'optimisation principale apportée à  \emph{dmake} pour améliorer ses performances
+est de forcer le noeud central à exécuter la dernière cible (au sens du graphe de dépendances).
+Cela permet de réduire considérablement la quantité de communications.
+En effet, il a été constaté que de manière générale, la
+dernière cible utilise l'ensemble
 des fichiers crées par les cibles précédentes.
 
 \subsection{Architecture}
 
-Pour le développement de l'application, nous avons découplé de la solution en
+Pour le développement de l'application, nous avons découplé la solution en
 trois classes principales: Makefile, DistributedMake et Rule.
 
 \begin{figure}[H]
@@ -178,35 +182,95 @@ trois classes principales: Makefile, DistributedMake et Rule.
 
 \subsubsection{Rule}
 
-Cette classe contient des informations telles que son nom, une liste des dépendances (de la même classe) et sa liste de commandes à exécuter. Il contient aussi des méthodes pour vérifier si la règle est un fichier (s'il y a un fichier avec le même nom et aucune de ses dépendances du type fichier on été modifiés après lui) et, si elle est, pour vérifier l'heure de sa dernière modification ou s'il a le bit exécutable.
+Cette classe contient des informations telles que le nom de la cible
+associée, sa liste de dépendances et sa liste de commandes à
+exécuter. Elle contient aussi des méthodes pour vérifier si la cible
+est un fichier (c'est à dire s'il existe un fichier de même nom et
+qu'aucune de ses dépendances de type fichier n'a été modifiée
+ultérieurement), pour vérifier l'heure de sa dernière modification ou
+si elle a le bit exécutable.
 
 \subsubsection{Makefile}
 
-Cette classe est chargé de la lecture et le parsing d'un fichier Makefile et de la stockage de ses cibles et de son graphe des dépendances.
+Cette classe est chargée de la lecture et du parsing d'un fichier
+Makefile ainsi que du stockage de ses cibles et de son graphe des dépendances.
 
 \subsubsection{DistributedMake}
 
-C'est la classe principale du programme. Il peut être à la fois un maître ou un esclave, selon la façon dont il est appelé dans le programme. Indépendamment du rôle qu'elle joue, elle doit recevoir un paramètre indiquant l'ID de son processus et le nombre total de processus en cours. Ces informations peuvent être récupérées à partir d'un appel MPI.
+C'est la classe principale du programme. Une instance de cette classe
+peut être un maître ou un esclave, selon la façon dont il est créée
+dans le programme. Indépendamment du rôle qu'elle joue, elle doit
+recevoir un paramètre indiquant l'ID de son processus et le nombre
+total de processus en cours. Ces informations sont récupérées à partir
+d'un appel MPI. 
 
 \paragraph{Maître}
 
-Lorsque initialisé, il crée un tableau de l'état de tous les processus esclaves et entre dans une boucle. Pour chaque processus inactif, il envoie une règle avec ses commandements et les dépendances et marque le nom de la règle dans son entrée dans le tableau. Quand un processus esclave envoie une réponse, il le marque comme étant capable de recevoir de nouvelles tâches.
+Une fois initialisé, le maître crée un tableau des états des
+processus esclaves et entre dans une boucle. Pour chaque processus
+inactif, il envoie une règle avec ses commandes et ses dépendances et
+le marque comme étant occupé. Quand un processus esclave indique qu'il a terminé la tâche,
+le maître le marque comme étant capable d'en recevoir de nouvelles.
 
 \paragraph{Esclaves}
 
-Ces processus sont exécutés dans une boucle en attendant pour des tâches. Quand ils le reçoivent, ils l'exécutent et envoient les résultats (fichiers générés) au maître.
+Ces processus sont exécutés dans une boucle en attendant d'être assignés
+à une tâche. Quand un esclave reçoit une tâche, il l'exécute et
+renvoie les résultats (c'est à dire les fichiers générés) au maître.
+
+\subsection{Protocole de communication}
+
+\paragraph{Envoi des tâches}
+Le protocole d'envoi d'une tâche comprend l'envoi de plusieurs
+messages du maître vers l'esclave correspondant. Ces messages sont:
+\begin{itemize}
+\item \texttt{NB\_FICHIERS} : un entier avec le nombre de fichiers qui seront envoyés. Cette valeur inclut les dépendances et les fichiers exécutables contenus dans les commandes de la cible.
+\item \texttt{FILE\_INFO} : pour chaque fichier, deux entiers en représentent la taille  (en octets) et le type (exécutable ou non). Si le fichier est exécutable, le processus esclave doit faire un \emph{chmod +x} lorsqu'il le reçoit.
+\item \texttt{FICHIER} : une chaîne de caractères contenant le nom du
+  fichier dans la première ligne et le contenu du fichier dans les lignes suivantes.
+\item \texttt{NB\_COMMANDES} : un entier avec le nombre de commandes qui seront envoyées.
+\item \texttt{COMMANDES} : ce message contient une chaîne de
+  caractères comprenant toutes les commandes séparées par un
+  \texttt{\\n}. Nous considérons que la taille maximale de chaque
+  commande est de 2048 octets. 
+\end{itemize}
+
+Soit \texttt{$N$} le nombre de fichiers à envoyer, \texttt{$T_f$} la
+taille du fichier le plus gros, \texttt{$C$} le nombre de commandes et
+\texttt{$T_c$} la taille de la plus grande commande. Alors le nombre
+total de messages à envoyer à un esclave est \texttt{$O(2 + 2 \cdot N
+  + C)$} = \texttt{$O(N + C)$}. En supposant que la taille d'un entier
+est de 4 octets, le nombre total d'octets envoyés à chaque tâche est
+\texttt{$O(8 + N \cdot (T_f+8) + C \cdot T_c)$} = \texttt{$O(N \cdot
+  T_f + C \cdot T_c)$}. 
+
+\paragraph{Envoi des réponses}
+Le protocole d'envoi d'une réponse est plus simple que celui d'envoi
+d'une tâche. L'esclave n'envoie que les fichier générés par
+l'exécution des commandes de la cible. Les messages sont donc
+\texttt{NB\_FICHIERS} et pour chaque fichier \texttt{FILE\_INFO} et
+\texttt{FICHIER}. La description de chaque message est la même que
+celle faite pour l'envoi des tâches. 
+
+L'analyse est similaire à l'envoi des tâches : soit \texttt{$N$} le
+nombre de fichiers à envoyer et \texttt{$T_f$} la taille du fichier le
+plus gros. Alors le nombre total de messages envoyés est \texttt{$O(1
+  + 2 \cdot N)$} = \texttt{$O(N)$}. Le nombre total d'octets envoyés
+est \texttt{$O(4 + N \cdot (T_f+8))$} = \texttt{$O(N \cdot T_f + C
+  \cdot T_c)$}. 
 
 \subsection{Installation}
 
-Pour compiler \emph{dmake}, il faut avoir une implémentation de \emph{MPI}.
-Dans notres machines, on a utilisé le \emph{OpenMPI}. Pour l'installer, il
+La compilation de \emph{dmake} nécessite d'avoir une implémentation de
+\emph{MPI} installée sur le système.
+Les tests ont été effectués avec \emph{OpenMPI}. Pour l'installer, il
 suffit d'exécuter la commande suivante :
 \begin{verbatim}
 > sudo apt-get install openmpi-dev
 > sudo apt-get install openmpi-bin
 \end{verbatim}
 
-Ensuite, il faut se placer à la racine du
+Pour compiler \emph{dmake}, il faut ensuite se placer à la racine du
 répertoire \texttt{dmake/} puis exécuter la commande :
 \begin{verbatim}
 > make
@@ -224,17 +288,12 @@ les valeurs souhaitées pour les variables \texttt{startMachine},
 \end{verbatim}
 
 Ensuite le déploiement lui-même s'effectue à l'aide de
-\texttt{mpirun} (qui doit être préalablement installé sur le système). Par exemple, pour lancer \emph{dmake} sur l'un des
+\texttt{mpirun}. Par exemple, pour lancer \emph{dmake} sur l'un des
 exemples fournis dans l'archive, il faut se placer de le dossier
 contenant l'exemple puis lancer la commande :
 \begin{verbatim}
 > mpirun -np NB_CORES -machinefile machines.txt PATH_TO_DMAKE
 \end{verbatim}
-
-
-% Pour déployer \emph{dmake}, il faut tout d'abord regler les paramètre
-% de déploiment dans \texttt{dmake.cfg} en indiquant le nombre de
-% machines sur lesquelles on souhaite déployer \emph{dmake}, ainsi que 
 
 \section{Tests de performances}
 
@@ -297,8 +356,7 @@ d'exécution de \emph{GNU make} pour le fichier test considéré.
 
 \subsection{Conditions expérimentales}
 
-Les test ont été effectués en salle D200. Les machines de cette ont un
-seul cœur chacune. La salle était peu occupée
+Les test ont été effectués en salle D200. La salle était peu occupée
 (environ 6 à 10 personnes). Cependant, les tests n'ayant pas tous été
 effectués le même jour, les conditions expérimentales ont pu
 varier. La charge du réseau notamment a pu être différente selon les
@@ -310,7 +368,7 @@ suivantes :
   précédé d'un "./".
 \item les fichiers nécessaires à l'exécution d'une cible ont été
   ajoutés dans les dépendances de celle-ci.
-\item une cible "clean" a été ajouté pour faire le nettoyage entre deux exécutions.
+\item une cible "clean" a été ajoutée pour faire le nettoyage entre deux exécutions.
 \end{itemize}
 
 \subsection{Résultats et analyse}
@@ -361,6 +419,16 @@ l'accélération de \emph{dmake} est proche de l'accélération
 théorique. Ici aussi le décalage par rapport à l'accélération théorique peut
 être imputée à la partie du code qui est non parallèle. 
 
+\subsubsection{L'environnement d'exécution}
+\begin{description}
+\item[Processeur :] TO CHECK
+\item[Mémoire :]
+\item[Réseau :]
+\item[OS :]
+\item[MPI :] OpenMPI 1.4
+\item[Nombre d’ordinateurs :] 20
+\end{description}
+
 \section*{Conclusion}
 On constate que \emph{dmake} est efficace pour des makefiles dont les
 tâches sont longues et relativement indépendantes
@@ -368,10 +436,4 @@ tâches sont longues et relativement indépendantes
 n'est plus négligeable devant le temps d'exécution des tâches, les
 performances s'effondrent (cf. \texttt{matrix}). On constate le même phénomène lorsque les
 tâches sont très dépendantes, car on s'approche alors d'une exécution séquentielle.
-
-
-
-
-
-
 \end{document}
