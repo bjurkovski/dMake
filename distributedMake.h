@@ -11,6 +11,8 @@
 #include <fstream>
 #include <sys/stat.h>	
 #include <unistd.h>
+#include <sys/types.h>
+#include <utime.h>
 
 #include <mpi.h>
 
@@ -49,6 +51,9 @@ class DistributedMake : public Make {
 
 		void createInitialSet(std::string startRule);
 		std::vector<Rule*> topologicalSort();
+
+		void serializeFileInfo(int& size, int& type, struct tm& timeModified, int output[11]);
+		void deserializeFileInfo(int input[11], int& size, int& type, struct tm& timeModified);
 
 		char* serializeFile(std::string filename, int& size, std::string folder="");
 		char* deserializeFile(char* file, std::string& filename);
