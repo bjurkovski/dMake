@@ -3,7 +3,7 @@
 #include <iostream>
 using namespace std;
 
-#define DEBUG 0
+#define DEBUG 1
 
 void DistributedMake::createInitialSet(string startRule) {
   Rule* rule = rules[startRule];
@@ -104,7 +104,8 @@ int DistributedMake::getTaskDestination(Rule* rule, vector<Rule*>& result) {
 	for(int i=0; i<numCores; i++) {
 		int currentCore = (lastUsedCore + i + 1) % numCores;
 		if(currentCore == coreId) continue;
-/*
+		if(coreWorkingOn[currentCore] != "") continue;
+//*
 		map<int, SendLog>::iterator it = filesSent.find(currentCore);
 		SendLog::iterator itFile;
 		int numEqualFiles = 0;
@@ -120,15 +121,21 @@ int DistributedMake::getTaskDestination(Rule* rule, vector<Rule*>& result) {
 						numEqualFiles++;
 					}
 					else {
+						cout << "checking core " << currentCore << " - ";
+						cout << "file " << files[j]->getName() << " changed!" << endl;
 						filesToSend.push_back(files[j]);
 					}
 				}
 				else {
+						cout << "checking core " << currentCore << " - ";
+					cout << "file " << files[j]->getName() << " has not been sent yet..." << endl;
 					filesToSend.push_back(files[j]);
 				}
 			}
 		}
 		else {
+						cout << "checking core " << currentCore << " - ";
+			cout << "first time communicating with this core" << endl;
 			for(unsigned int j=0; j<files.size(); j++) {
 				filesToSend.push_back(files[j]);
 			}
@@ -139,9 +146,9 @@ int DistributedMake::getTaskDestination(Rule* rule, vector<Rule*>& result) {
 			bestCandidate = currentCore;
 			result = filesToSend;
 		}
-*/
-		result = files;
-		return currentCore;
+//*/
+//		result = files;
+//		return currentCore;
 	}
 
 	return bestCandidate;
@@ -150,7 +157,7 @@ int DistributedMake::getTaskDestination(Rule* rule, vector<Rule*>& result) {
 bool DistributedMake::sendTask(Rule* rule) {
 	vector<Rule*> files;
 	int currentCore = getTaskDestination(rule, files);
-	if((currentCore!=-1) && (coreWorkingOn[currentCore] == "")) {
+	if(currentCore!=-1) {
 		if (DEBUG)
 			cout << "DEBUG -- sendTask : Dispatching rule '" << rule->getName() << "' to core " << currentCore << endl;
 
@@ -264,8 +271,8 @@ void DistributedMake::receiveResponse() {
 				int filenameSize = filename.size();
 				FILE* newFile = fopen(filename.c_str(), "w");
 				fwrite(content, sizeof(char), fileSize - filenameSize - 1, newFile);
-
 				fclose(newFile);
+				//filesSent[i][fileName] = ;
 
 				if(fileType == EXECUTABLE_FILE) {
 					system(("chmod +x " + filename).c_str());
