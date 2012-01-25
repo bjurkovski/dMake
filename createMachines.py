@@ -1,7 +1,7 @@
 import os
 
 startMachine = 21
-NUM_MACHINES = 25
+NUM_MACHINES = 26
 LAST_MACHINE = 48
 
 machinesFile = file("machines.txt", 'w')

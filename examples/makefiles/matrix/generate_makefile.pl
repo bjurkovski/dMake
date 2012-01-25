@@ -15,7 +15,7 @@ print "all: c\n\n";
 #print "all: c check\n\n";
 
 print "check:\ta b\n";
-print "\t multiply check a b\n";
+print "\t./multiply check a b\n";
 
 my ($i, $j, $k);
 foreach $i (1..$size) {
@@ -30,7 +30,7 @@ foreach $i (1..$size) {
 }
 
 print "c:\t@c\n";
-print "\tfuse c $size $size @c\n";
+print "\t./fuse c $size $size @c\n";
 
 print "\n#\n";
 
@@ -42,7 +42,7 @@ foreach $c (@c) {
 	my @deps;
 	push @deps, "p-$i-$_-$_-$j" foreach (1..$size);
 	print "$c:\t@deps\n";
-	print "\tsum $c @deps\n";
+	print "\t./sum $c @deps\n";
 }
 
 print "\n#\n";
@@ -54,7 +54,7 @@ foreach $p (@p) {
 	my $k = $chars[2];
 	my $j = $chars[4];
 	print "$p:\ta-$i-$k b-$k-$j\n";
-	print "\tmultiply $p a-$i-$k b-$k-$j\n"
+	print "\t./multiply $p a-$i-$k b-$k-$j\n"
 }
 
 print "\n#\n";
@@ -64,7 +64,7 @@ foreach $a (@a) {
 	my $i = $chars[1];
 	my $j = $chars[2];
 	print "$a:\ta\n";
-	print "\tsplit $a a $size $size $i $j\n";
+	print "\t./split $a a $size $size $i $j\n";
 }
 
 print "\n#\n";
@@ -74,7 +74,7 @@ foreach $b (@b) {
 	my $i = $chars[1];
 	my $j = $chars[2];
 	print "$b:\tb\n";
-	print "\tsplit $b b $size $size $i $j\n";
+	print "\t./split $b b $size $size $i $j\n";
 }
 
 print "clean:\n";
