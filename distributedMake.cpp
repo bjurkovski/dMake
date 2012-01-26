@@ -537,12 +537,26 @@ void DistributedMake::run(Makefile makefile, string startRule) {
 	unsigned int currentRule = 0;
 	createInitialSet(startRule);
 	vector<Rule*> orderedList = topologicalSort();
+	for(unsigned int i=currentRule; i<orderedList.size(); i++)
+		ruleExecuting.push_back(false);
 
 	while(1) {
 		if(currentRule < orderedList.size()) {
-			if(canSendTask(orderedList[currentRule])) {
-				if(currentRule == orderedList.size()-1) {
-					executeCommands(orderedList[currentRule]->getCommands());
+			while(ruleIsFinished[orderedList[currentRule]->getName()])
+				currentRule++;
+
+			bool canExecute = false;
+			unsigned int toExecute = currentRule;
+			for(unsigned int i=currentRule; i<orderedList.size(); i++) {
+				if(!ruleExecuting[i] && canSendTask(orderedList[i])) {
+					canExecute = true;
+					toExecute = i;
+				}
+			}
+
+			if(canExecute) {
+				if(toExecute == orderedList.size()-1) {
+					executeCommands(orderedList[toExecute]->getCommands());
 					int sendValue = 1;
 					//			TO DO: Try to use broadcast. Problem: we don't have a tag identifying
 					//			the kind of message being passed.
@@ -555,8 +569,10 @@ void DistributedMake::run(Makefile makefile, string startRule) {
 						cout << "DEBUG -- run : Master is finishing. Sending message to slaves." << endl;
 					break;
 				}
-				else if(sendTask(orderedList[currentRule])) {
-					currentRule++;
+				else {
+					if(sendTask(orderedList[toExecute])) {
+						ruleExecuting[toExecute] = true;
+					}
 				}
 			}
 		}

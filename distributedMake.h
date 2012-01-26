@@ -62,6 +62,7 @@ class DistributedMake : public Make {
 		char* serializeFile(std::string filename, int& size, std::string folder="");
 		char* deserializeFile(char* file, std::string& filename);
 
+		std::vector<bool> ruleExecuting;
 		bool canSendTask(Rule* rule);
 		int getTaskDestination(Rule* rule, std::vector<Rule*>& result, std::vector<Rule*>& commandFiles);
 		bool sendTask(Rule* rule);

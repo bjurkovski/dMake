@@ -93,7 +93,7 @@ int main() {
 					end = time(NULL);
 					tempTime = difftime(end, begin);
 					tExec += tempTime;
-					fprintf(log, "dmake %s %d measure %lf\n", benchmarks[i].c_str(), m, tExec);
+					fprintf(log, "dmake %s %d measure %lf\n", benchmarks[i].c_str(), m, tempTime);
 				}
 				tExec /= numTimes;
 				if(m == 2) tDMake1core = tExec;
