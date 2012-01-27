@@ -168,6 +168,8 @@ En effet, il a été constaté que de manière générale, la
 dernière cible utilise l'ensemble
 des fichiers crées par les cibles précédentes.
 
+Une autre optimisation mis en œuvre est de garder un tableau, pour chaque processus, des fichiers qu'ils détiennent et son timestamp. Avec cela, nous pouvons éviter de renvoyer tous les fichiers que le processus a besoin s'il les a déjà et ils sont à jour. Pour garder une trace de la version, on initialise les entrées pour tous les fichiers dans le tableau avec 0 et, pour chaque fichier le maître reçoit d'un esclave, on incrémente une horloge logique et stocke sa valeur comme le timestamp du fichier reçu. Nous avons besoin d'utiliser une horloge logique parce que, puisque nous sommes d'exécution dans un environnement distribué, nous ne pouvons pas prend en compte les timestamps physique des fichiers (les horloges peuvent ne pas être synchronisées).
+
 \subsection{Architecture}
 
 Pour le développement de l'application, nous avons découplé la solution en
@@ -435,7 +437,7 @@ On constate que l'accélération est meilleure pour \emph{premier} que pour \emp
   \label{fig:premierAcc}
 \end{figure}
 
-\subsubsection{Matrix}
+\subsubsection{Matrix (10x10, granularité 10)}
 
 \begin{figure}[h]
   \centering
