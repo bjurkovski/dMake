@@ -375,7 +375,6 @@ suivantes :
 \begin{description}
 \item[Processeur :] 2 coeurs Intel Pentium D CPU 2.80GHz
 \item[Mémoire :] 1Go
-\item[Réseau :] ethernet
 \item[OS :] ubuntu 11.04
 \item[MPI :] OpenMPI 1.4
 \item[Nombre d’ordinateurs :] 26
@@ -467,4 +466,8 @@ tâches sont longues et relativement indépendantes
 n'est plus négligeable devant le temps d'exécution des tâches, les
 performances s'effondrent (cf. \texttt{matrix}). On constate le même phénomène lorsque les
 tâches sont très dépendantes, car on s'approche alors d'une exécution séquentielle.
+
+\subsection*{Passage à l'échelle}
+Notre application peut traiter bien des tâches indépendantes et de traitement lourde. Les difficultés de passage à l'échelle arrivent quand nous avons des tâches très rapides qui exigent de nombreux transferts de fichiers (comme l'exemple "matrix"). Puisque notre ordonnancement des tâches se fait de manière centralisée, ce genre d'entrée (des tâches à grain fin) peut surcharger le maître et conduire à des résultats pas si bons. Par contre, avec une approche centralisée, nous avons une vue globale de l'état du système, donc on peut mieux gérer les dépendances pour prendre des décisions, ce qui augmente l'efficacité.
+
 \end{document}
